@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+members = ["crates/graphgarden-core", "crates/graphgarden"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/bruits/graphgarden"

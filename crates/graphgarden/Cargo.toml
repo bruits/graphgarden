@@ -1,0 +1,14 @@
+[package]
+name = "graphgarden"
+version = "0.1.0"
+description = "CLI for GraphGarden — generate a node graph of your personal site and web ring"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "graphgarden"
+path = "src/main.rs"
+
+[dependencies]
+graphgarden-core = { path = "../graphgarden-core" }

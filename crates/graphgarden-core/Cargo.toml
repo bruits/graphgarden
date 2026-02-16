@@ -1,0 +1,9 @@
+[package]
+name = "graphgarden-core"
+version = "0.1.0"
+description = "Core library for GraphGarden — crawl websites and build a node graph of pages and links"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
