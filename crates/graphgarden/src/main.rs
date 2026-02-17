@@ -1,5 +1,3 @@
-use graphgarden_core::hello;
-
 fn main() {
-    println!("{}", hello());
+    println!("graphgarden — not yet implemented");
 }

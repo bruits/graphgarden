@@ -71,22 +71,19 @@ Each participating site publishes a public JSON file describing its own page gra
 `graphgarden.toml` — at the project root.
 
 ```toml
+friends = [
+  "https://bob.dev/",
+  "https://carol.dev/",
+]
+
 [site]
 base_url = "https://alice.dev/"
 title    = "Alice's Garden"
 # description = "A blog about …"
 # language    = "en"
 
-[[friends]]
-url = "https://bob.dev/graphgarden.json"
-
-[[friends]]
-url = "https://carol.dev/graphgarden.json"
-
 [output]
-dir           = "./dist"                       # default
-public_file   = "graphgarden.json"             # default
-compiled_file = "graphgarden.compiled.json"    # default
+dir = "./dist"    # default
 
 [parse]
 include = ["**/*.html"]            # default
