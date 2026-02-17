@@ -62,7 +62,7 @@ impl Config {
         if !path.exists() {
             return Err(Error::ConfigNotFound(path.to_path_buf()));
         }
-        let content = std::fs::read_to_string(path)?;
+        let content = std::fs::read_to_string(path).map_err(Error::ConfigRead)?;
         content.parse()
     }
 }

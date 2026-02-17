@@ -1,41 +1,26 @@
 # Agents Guide
 
-Principles for how automated agents and contributors generate code and docs here. Favor clarity, small testable units, and the project's existing conventions.
+GraphGarden is a protocol and toolkit to turn web rings into explorable link graphs, made in Rust.
 
-## Core Engineering Values
+## Useful Commands
 
-- Clarity over cleverness: write idiomatic, expressive, statically typed code.
-- Leverage immutability and pattern matching where available; avoid hidden state.
-- Prefer small, focused modules and explicit types over "magic".
+```sh
+cargo fmt --all                       # format
+cargo clippy --all --all-targets      # lint
+cargo test --all                      # test
+```
 
-## Testing
+## Useful Resources
 
-- Unit-test pure functions and isolated modules.
-- Assert observable behavior (inputs/outputs, effects), not internal details.
-- Keep tests deterministic and independent of global state.
+- In [CONTRIBUTING.md](./CONTRIBUTING.md) : [Quality Guidelines](./CONTRIBUTING.md#quality-guidelines) applies to agents and humans equally, [Getting Started](./CONTRIBUTING.md#getting-started) helps you understand the project structure, and [Philosophy](./CONTRIBUTING.md#philosophy) is the project's north star.
+- Per-crate READMEs (e.g. [graphgarden-core](./crates/graphgarden-core/README.md)) contain public API documentation, it should stay concise and user-facing.
+- [PROTOCOL.md](./PROTOCOL.md) is the single source of truth for the technical specification of the GraphGarden protocol.
+- [GitHub](https://github.com/bruits/graphgarden) Issues and PRs are the best place for implementation details, design discussions, and technical decisions.
 
-## Errors
+## Agent Guardrails
 
-- Typed error enums in library crates (`error.rs`), derived with `thiserror`.
-- `anyhow` in the binary crate only, for CLI-level error propagation with context.
-- Per-crate `pub type Result<T>` aliases for ergonomic signatures.
-- Prefer `?` propagation over `.expect()` / `.unwrap()` in production code. Reserve `.expect()` for cases where failure is a programmer bug (e.g. hardcoded regex literals, test helpers).
-- Add context at the boundary (CLI) rather than deep in core, keep library error messages concise.
-
-## Documentation
-
-- Self-documenting code first: expressive names and straightforward logic.
-- Comments explain why (intent, invariants, trade-offs), not how.
-- All code, comments, documentation, commit messages, and user-facing output (CLI prompts, logs, errors) must be in English.
-- Do NOT create a documentation file to explain the implementation.
-
-## Repository Conventions
-
-- Before generating new code or docs, parse repository to inherit existing conventions and avoid duplication.
-- Match the current project structure, naming, and style; do not create parallel patterns.
-- Explicit `use` imports for standard library types.
-
-## Changes & Dependencies
-
+- Do not create new documentation files to explain implementation.
 - Do not alter CI/CD configuration unless explicitly instructed.
-- Only add external dependencies with strong justification and prior discussion. Prefer the standard library and existing utilities.
+- Do not add external dependencies without justification. Prefer the standard library and existing utilities.
+- Match the current project structure, naming, and style; do not create parallel patterns and avoid duplication.
+- All code, comments, documentation, commit messages, and user-facing output must be in English.

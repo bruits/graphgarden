@@ -1,62 +1,28 @@
 # graphgarden-core
 
-Core library for [GraphGarden]([../../README.md](https://github.com/bruits/graphgarden)), to crawl websites and build a node graph of pages and links.
+Core library for [GraphGarden](https://github.com/bruits/graphgarden) — walks a built site's HTML output, extracts links, classifies them, and assembles the public graph file.
 
-See [PROTOCOL.md]([../../PROTOCOL.md](https://github.com/bruits/graphgarden/blob/main/PROTOCOL.md)) for the full specification.
+See the [protocol specification](https://github.com/bruits/graphgarden/blob/main/PROTOCOL.md) for full details.
 
-## Configuration parsing
+## Modules
 
-`Config` reads and deserialises a site's configuration file. It also implements `FromStr` for parsing from a raw string.
+- **`config`** — `Config::from_file(path)` loads a `graphgarden.toml` configuration file. Also implements `FromStr` for parsing from a raw string.
+- **`model`** — Protocol data types: `Node`, `Edge`, `EdgeType`, `SiteMetadata`, `PublicFile`, `CompiledFile`, `SiteGraph`. Both `PublicFile` and `CompiledFile` expose `to_json()` / `from_json()` helpers.
+- **`extract`** — `extract_page(html, page_url, base_url, friends, exclude_selectors)` parses an HTML page (via `lol_html`), extracts the title and links, and classifies edges as `Internal` or `Friend` (external links are dropped). Returns `Result<(Node, Vec<Edge>)>`.
+- **`build`** — `build(config)` walks the output directory, applies include/exclude globs, extracts links from every matched HTML file, and returns a complete `Result<PublicFile>`.
+- **`error`** — `Error` enum and `Result<T>` alias, both re-exported at the crate root.
+
+## Quick example
 
 ```rust
 use graphgarden_core::config::Config;
+use graphgarden_core::build::build;
 
 let config = Config::from_file("graphgarden.toml")?;
-println!("{}", config.site.base_url);
+let public_file = build(&config)?;
+let json = public_file.to_json()?;
 ```
 
-Main types:
+## Development
 
-| Struct         | Key fields                                                            |
-| -------------- | --------------------------------------------------------------------- |
-| `Config`       | `site`, `friends`, `output`, `parse`                                  |
-| `SiteConfig`   | `base_url`, `title`, `description?`, `language?`                      |
-| `OutputConfig` | `dir` (default `"./dist"`)                                            |
-| `ParseConfig`  | `include` (default `["**/*.html"]`), `exclude?`, `exclude_selectors?` |
-
-## Protocol data structures
-
-`Model` defines the core data structures for the public and compiled files, as well as the in-memory graph representation.
-
-```rust
-use graphgarden_core::model::{PublicFile, Node, Edge, EdgeType, SiteMetadata};
-
-let public = PublicFile {
-    version: String::from("1.0.0"),
-    generated_at: String::from("2026-02-17T12:00:00Z"),
-    base_url: String::from("https://example.dev/"),
-    site: SiteMetadata {
-        title: String::from("My Site"),
-        description: None,
-        language: Some(String::from("en")),
-    },
-    nodes: vec![Node { url: String::from("/"), title: String::from("Home") }],
-    edges: vec![Edge {
-        source: String::from("/"),
-        target: String::from("/about"),
-        edge_type: EdgeType::Internal,
-    }],
-};
-
-let json = public.to_json()?;
-let parsed = PublicFile::from_json(&json)?;
-```
-
-Key types: `Node`, `Edge`, `EdgeType` (`Internal` | `Friend`), `SiteMetadata`, `PublicFile`, `CompiledFile`, `SiteGraph`.
-
-Both `PublicFile` and `CompiledFile` expose `to_json()` / `from_json()` helpers.
-
-## Errors
-
-- `Error` — `ConfigNotFound`, `ConfigRead`, `ConfigParse`, `JsonSerialize`, `JsonDeserialize`
-- `Result<T>` — type alias for `std::result::Result<T, Error>`
+Refer to [CONTRIBUTING.md](../../CONTRIBUTING.md#graphgarden-core) for development setup and workflow details.
