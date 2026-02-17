@@ -90,12 +90,3 @@ include = ["**/*.html"]            # default
 exclude = ["admin/**"]
 exclude_selectors = ["header", "footer", "nav"]   # CSS selectors to skip when extracting links
 ```
-
-## Workflow
-
-1. Add a `graphgarden.toml` to your project root.
-2. Build your site (Hugo, Zola, Astro, plain HTML, etc.).
-3. Run `graphgarden build` — crawls the built site, produces `graphgarden.json`.
-4. Run `graphgarden compile` (or `graphgarden build --compile`) — fetches friends' public files, produces `graphgarden.compiled.json`.
-5. Deploy both JSON files alongside your site.
-6. Add the `<graph-garden>` web component to your pages to render the graph.

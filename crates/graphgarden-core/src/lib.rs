@@ -7,6 +7,8 @@ pub mod build;
 pub mod config;
 pub mod error;
 pub mod extract;
+pub mod fetch;
 pub mod model;
 
 pub use error::{Error, Result};
+pub use model::PROTOCOL_VERSION;

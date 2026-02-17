@@ -2,7 +2,7 @@
 
 > If you look the right way, you can see that the whole world is a garden.
 
-A protocol and toolkit to turn web rings into explorable link graphs 🪴
+A [protocol](./PROTOCOL.md) and toolkit to turn web rings into explorable link graphs 🪴
 
 ## Crates
 

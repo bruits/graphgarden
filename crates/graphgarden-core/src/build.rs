@@ -7,7 +7,7 @@ use walkdir::WalkDir;
 use crate::config::Config;
 use crate::error::{Error, Result};
 use crate::extract::extract_page;
-use crate::model::{PublicFile, SiteMetadata};
+use crate::model::{self, PublicFile, SiteMetadata};
 
 /// Walks the output directory, extracts links from HTML files, and assembles a [`PublicFile`].
 pub fn build(config: &Config) -> Result<PublicFile> {
@@ -66,7 +66,7 @@ pub fn build(config: &Config) -> Result<PublicFile> {
     }
 
     Ok(PublicFile {
-        version: String::from("1.0.0"),
+        version: String::from(model::PROTOCOL_VERSION),
         generated_at: utc_timestamp(),
         base_url: config.site.base_url.clone(),
         site: SiteMetadata {
@@ -172,7 +172,7 @@ mod tests {
         let config = test_config(dir.to_str().unwrap());
         let result = build(&config).unwrap();
 
-        assert_eq!(result.version, "1.0.0");
+        assert_eq!(result.version, crate::model::PROTOCOL_VERSION);
         assert_eq!(result.base_url, "https://alice.dev/");
         assert_eq!(result.site.title, "Alice's Garden");
         assert_eq!(result.nodes.len(), 2);

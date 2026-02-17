@@ -2,6 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Result};
 
+/// The protocol version, derived from the crate version.
+pub const PROTOCOL_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Node {
     pub url: String,
@@ -88,7 +91,7 @@ mod tests {
 
     fn sample_public_file() -> PublicFile {
         PublicFile {
-            version: String::from("1.0.0"),
+            version: String::from(PROTOCOL_VERSION),
             generated_at: String::from("2026-02-17T12:00:00Z"),
             base_url: String::from("https://alice.dev/"),
             site: SiteMetadata {
@@ -123,7 +126,7 @@ mod tests {
 
     fn sample_compiled_file() -> CompiledFile {
         CompiledFile {
-            version: String::from("1.0.0"),
+            version: String::from(PROTOCOL_VERSION),
             compiled_at: String::from("2026-02-17T12:05:00Z"),
             self_graph: SiteGraph {
                 base_url: String::from("https://alice.dev/"),
@@ -213,7 +216,7 @@ mod tests {
     #[test]
     fn protocol_public_file_example_deserializes() {
         let json = r#"{
-            "version": "1.0.0",
+            "version": "0.1.0",
             "generated_at": "2026-02-17T12:00:00Z",
             "base_url": "https://alice.dev/",
             "site": {
@@ -235,7 +238,7 @@ mod tests {
 
         let public_file = PublicFile::from_json(json).expect("protocol example should deserialize");
 
-        assert_eq!(public_file.version, "1.0.0");
+        assert_eq!(public_file.version, PROTOCOL_VERSION);
         assert_eq!(public_file.base_url, "https://alice.dev/");
         assert_eq!(public_file.site.title, "Alice's Garden");
         assert_eq!(public_file.nodes.len(), 3);
@@ -246,7 +249,7 @@ mod tests {
     #[test]
     fn protocol_compiled_file_example_deserializes() {
         let json = r#"{
-            "version": "1.0.0",
+            "version": "0.1.0",
             "compiled_at": "2026-02-17T12:05:00Z",
             "self": {
                 "base_url": "https://alice.dev/",
@@ -266,7 +269,7 @@ mod tests {
 
         let compiled = CompiledFile::from_json(json).expect("compiled example should deserialize");
 
-        assert_eq!(compiled.version, "1.0.0");
+        assert_eq!(compiled.version, PROTOCOL_VERSION);
         assert_eq!(compiled.self_graph.base_url, "https://alice.dev/");
         assert_eq!(compiled.self_graph.site.title, "Alice's Garden");
         assert_eq!(compiled.friends.len(), 1);
