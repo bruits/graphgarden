@@ -1,6 +1,6 @@
 //! # GraphGarden Core
 //!
-//! Let's turn web rings into explorable link graphs 🪴
+//! A protocol and toolkit to turn web rings into explorable link graphs 🪴
 //! Core library for crawling, graph model, and link extraction.
 
 /// Placeholder – the real graph model will live here.

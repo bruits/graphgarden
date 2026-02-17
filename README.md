@@ -2,7 +2,7 @@
 
 > If you look the right way, you can see that the whole world is a garden.
 
-A Rust library to turn web rings into explorable link graphs 🪴
+A protocol and toolkit to turn web rings into explorable link graphs 🪴
 
 ## Crates
 
