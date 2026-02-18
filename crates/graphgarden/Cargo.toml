@@ -12,3 +12,11 @@ path = "src/main.rs"
 
 [dependencies]
 graphgarden-core = { path = "../graphgarden-core" }
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+serde_json = "1"
+tempfile = "3"

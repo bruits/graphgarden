@@ -2,6 +2,16 @@
 
 CLI for [GraphGarden](https://github.com/bruits/graphgarden) — crawl a site and generate its [protocol](https://github.com/bruits/graphgarden/blob/main/crates/graphgarden-protocol/README.md) file.
 
+## Usage
+
+```sh
+# Build the graph from the default config (graphgarden.toml)
+graphgarden build
+
+# Use a custom config file
+graphgarden build --config path/to/config.toml
+```
+
 ## Configuration
 
 `graphgarden.toml` — at the project root.
