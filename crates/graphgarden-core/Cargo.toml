@@ -1,19 +1,16 @@
 [package]
 name = "graphgarden-core"
 version = "0.1.0"
-description = "Core library for GraphGarden — crawl websites and build a node graph of pages and links"
+description = "Core library implementing the GraphGarden protocol — crawl a site and build its link graph"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
+graphgarden-protocol = { path = "../graphgarden-protocol" }
 globset = "0.4"
 jiff = "0.2"
 lol_html = "2"
-reqwest = { version = "0.12", default-features = false, features = [
-    "blocking",
-    "rustls-tls",
-] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"

@@ -32,12 +32,6 @@ pub enum Error {
 
     #[error("directory walk error: {0}")]
     DirectoryWalk(#[from] walkdir::Error),
-
-    #[error("HTTP request failed: {0}")]
-    HttpRequest(String),
-
-    #[error("failed to read HTTP response body: {0}")]
-    HttpBody(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

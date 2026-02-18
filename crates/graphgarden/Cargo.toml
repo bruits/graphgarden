@@ -1,7 +1,7 @@
 [package]
 name = "graphgarden"
 version = "0.1.0"
-description = "CLI for GraphGarden — generate a node graph of your personal site and web ring"
+description = "CLI for GraphGarden — crawl a site and generate its protocol file"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

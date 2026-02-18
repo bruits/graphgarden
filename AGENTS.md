@@ -1,6 +1,6 @@
 # Agents Guide
 
-GraphGarden is a protocol and toolkit to turn web rings into explorable link graphs, made in Rust.
+GraphGarden is a Rust monorepo, with a new protocol and related tools to turn web rings into explorable node graphs 🪴
 
 ## Useful Commands
 
@@ -13,8 +13,8 @@ cargo test --all                      # test
 ## Useful Resources
 
 - In [CONTRIBUTING.md](./CONTRIBUTING.md) : [Quality Guidelines](./CONTRIBUTING.md#quality-guidelines) applies to agents and humans equally, [Getting Started](./CONTRIBUTING.md#getting-started) helps you understand the project structure, and [Philosophy](./CONTRIBUTING.md#philosophy) is the project's north star.
+- [Protocol specification](./crates/graphgarden-protocol/README.md) is the single source of truth for the technical specification of the GraphGarden protocol.
 - Per-crate READMEs (e.g. [graphgarden-core](./crates/graphgarden-core/README.md)) contain public API documentation, it should stay concise and user-facing.
-- [PROTOCOL.md](./PROTOCOL.md) is the single source of truth for the technical specification of the GraphGarden protocol.
 - [GitHub](https://github.com/bruits/graphgarden) Issues and PRs are the best place for implementation details, design discussions, and technical decisions.
 
 ## Agent Guardrails

@@ -46,13 +46,17 @@ GraphGarden is a fairly standard Rust project with a typical directory structure
 
 GraphGarden is a Rust monorepo using [Cargo workspaces](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html). It contains multiple crates (Rust packages) in the `crates/` directory:
 
+### GraphGarden Protocol
+
+`graphgarden-protocol` holds the [protocol specification](./crates/graphgarden-protocol/README.md) and versions it independently from the implementation crates. Its Rust library is intentionally minimal — it only exposes a `PROTOCOL_VERSION` constant. Changes to this crate should be rare and carefully considered, as they affect all implementations.
+
 ### GraphGarden Core
 
-`graphgarden-core` is a plain Rust library that owns the graph construction and data model. It is the heart of the project, containing the logic to walk a built site's HTML output, extract links, classify them, and assemble the public graph file.
+`graphgarden-core` is the core library that implements the [GraphGarden protocol](./crates/graphgarden-protocol/README.md). It owns the data model, walks a built site's HTML output, extracts links, classifies them, and assembles the public `graphgarden.json` file.
 
-### GraphGarden
+### GraphGarden CLI
 
-`graphgarden` is the CLI facade on top of `graphgarden-core`. It wires commands together and provides the user-facing interface.
+`graphgarden` is the CLI built on top of `graphgarden-core`. It provides the user-facing commands to crawl a site and generate its protocol file.
 
 ---
 

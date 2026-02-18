@@ -1,6 +1,10 @@
 [workspace]
 resolver = "2"
-members = ["crates/graphgarden-core", "crates/graphgarden"]
+members = [
+    "crates/graphgarden-protocol",
+    "crates/graphgarden-core",
+    "crates/graphgarden",
+]
 
 [workspace.package]
 edition = "2024"

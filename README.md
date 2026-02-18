@@ -2,17 +2,17 @@
 
 > If you look the right way, you can see that the whole world is a garden.
 
-A [protocol](./PROTOCOL.md) and toolkit to turn web rings into explorable link graphs 🪴
+A [protocol](./crates/graphgarden-protocol/README.md), and related tools, to turn web rings into explorable node graphs 🪴
 
 ## Crates
 
-GraphGarden is a monorepo that contains the following crates (Rust packages) and packages (TypeScript packages):
+GraphGarden is a monorepo that contains the following crates (Rust packages):
 
-| Name               | Description                                           | Registry | README                                        |
-| ------------------ | ----------------------------------------------------- | -------- | --------------------------------------------- |
-| `graphgarden`      | CLI — crawl, build, and export the graph              | *WIP*    | [README](./crates/graphgarden/README.md)      |
-| `graphgarden-core` | Core library — crawling, graph model, link extraction | *WIP*    | [README](./crates/graphgarden-core/README.md) |
-| `graphgarden-web`  | Web component — display the graph in your website     | *WIP*    | [README](./crates/graphgarden-web/README.md)  |
+| Name                   | Description                                                           | Registry | README                                            |
+| ---------------------- | --------------------------------------------------------------------- | -------- | ------------------------------------------------- |
+| `graphgarden-protocol` | Protocol specification                                                | *WIP*    | [README](./crates/graphgarden-protocol/README.md) |
+| `graphgarden`          | CLI — crawl a site and generate its protocol file                     | *WIP*    | [README](./crates/graphgarden/README.md)          |
+| `graphgarden-core`     | Core library — protocol implementation, crawling, and link extraction | *WIP*    | [README](./crates/graphgarden-core/README.md)     |
 
 ## Aknowledgments
 
