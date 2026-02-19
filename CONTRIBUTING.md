@@ -58,6 +58,16 @@ GraphGarden is a Rust monorepo using [Cargo workspaces](https://doc.rust-lang.or
 
 `graphgarden` is the CLI built on top of `graphgarden-core`. It provides the user-facing commands to crawl a site and generate its protocol file.
 
+### E2E Fixtures
+
+`fixtures/` contains end-to-end test sites and a [Vitest](https://vitest.dev/) test suite that exercises the full pipeline — Astro build, CLI run, and JSON validation. It includes two fixture sites: Alice (a minimal Astro site processed by the CLI) and Bob (a pre-written static `graphgarden.json` served via a mock HTTP server).
+
+Running the e2e tests requires [Node.js](https://nodejs.org/) and [pnpm](https://pnpm.io/) in addition to Rust:
+
+```sh
+cd fixtures && pnpm install && pnpm test
+```
+
 ---
 
 Thank you once again for contributing, we deeply appreciate all contributions, no matter how small or big.

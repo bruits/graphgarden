@@ -1,0 +1,35 @@
+{
+  "version": "0.1.0",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "base_url": "https://bob.test/",
+  "site": {
+    "title": "Bob's Your Uncle",
+    "description": "Bob's your uncle for all things rabbits in England",
+    "language": "en"
+  },
+  "nodes": [
+    { "url": "/", "title": "Home" },
+    { "url": "/about/", "title": "About" },
+    { "url": "/regions/yorkshire/", "title": "Yorkshire Rabbits" },
+    { "url": "/regions/cotswolds/", "title": "Cotswolds Warrens" }
+  ],
+  "edges": [
+    { "source": "/", "target": "/about/", "type": "internal" },
+    { "source": "/", "target": "/regions/yorkshire/", "type": "internal" },
+    { "source": "/", "target": "/regions/cotswolds/", "type": "internal" },
+    { "source": "/about/", "target": "/", "type": "internal" },
+    { "source": "/about/", "target": "https://alice.test/", "type": "friend" },
+    { "source": "/regions/yorkshire/", "target": "/", "type": "internal" },
+    {
+      "source": "/regions/yorkshire/",
+      "target": "https://alice.test/species/european-rabbit/",
+      "type": "friend"
+    },
+    { "source": "/regions/cotswolds/", "target": "/", "type": "internal" },
+    {
+      "source": "/regions/cotswolds/",
+      "target": "/regions/yorkshire/",
+      "type": "internal"
+    }
+  ]
+}

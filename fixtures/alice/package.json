@@ -1,0 +1,10 @@
+{
+  "name": "alice",
+  "type": "module",
+  "scripts": {
+    "build": "astro build"
+  },
+  "dependencies": {
+    "astro": "^5"
+  }
+}

@@ -1,0 +1,10 @@
+friends = ["https://bob.test/"]
+
+[site]
+base_url = "https://alice.test/"
+title = "Alice's Rabbits"
+description = "A guide to European rabbit species"
+language = "en"
+
+[output]
+dir = "./dist"

@@ -14,6 +14,10 @@ GraphGarden is a monorepo that contains the following crates (Rust packages):
 | `graphgarden`          | CLI — crawl a site and generate its protocol file                     | *WIP*    | [README](./crates/graphgarden/README.md)          |
 | `graphgarden-core`     | Core library — protocol implementation, crawling, and link extraction | *WIP*    | [README](./crates/graphgarden-core/README.md)     |
 
+## Fixtures
+
+The `fixtures/` directory holds end-to-end test sites and a [Vitest](https://vitest.dev/) test suite that exercises the full build pipeline. See the [README](./fixtures/README.md) for details.
+
 ## Aknowledgments
 
 GraphGarden is an open-source project born from [Bruits](https://bruits.org/), a Rust-focused collective.
