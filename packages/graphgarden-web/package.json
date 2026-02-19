@@ -25,11 +25,18 @@
 	},
 	"scripts": {
 		"build": "tsx build.ts && tsc",
-		"dev": "tsx watch build.ts"
+		"dev": "tsx watch build.ts",
+		"test": "vitest run",
+		"test:watch": "vitest"
+	},
+	"dependencies": {
+		"graphology": "^0.25"
 	},
 	"devDependencies": {
 		"esbuild": "^0.25",
+		"happy-dom": "^18",
 		"tsx": "^4",
-		"typescript": "^5"
+		"typescript": "^5",
+		"vitest": "^3"
 	}
 }

@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { readFileSync, rmSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, test, expect, beforeAll, afterAll } from "vitest";
+import { isGraphGardenFile, buildGraph, type GraphGardenFile } from "graphgarden-web";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const ALICE_DIR = resolve(ROOT, "alice");
@@ -11,30 +12,6 @@ const ALICE_JSON_PATH = resolve(ALICE_DIST, ".well-known", "graphgarden.json");
 const BOB_JSON_PATH = resolve(ROOT, "bob", "graphgarden.json");
 const CARGO_ROOT = resolve(ROOT, "..");
 const GRAPHGARDEN_BIN = resolve(CARGO_ROOT, "target", "debug", "graphgarden");
-
-interface Node {
-	url: string;
-	title: string;
-}
-
-interface Edge {
-	source: string;
-	target: string;
-	type: "internal" | "friend";
-}
-
-interface GraphGardenFile {
-	version: string;
-	generated_at: string;
-	base_url: string;
-	site: {
-		title: string;
-		description?: string;
-		language?: string;
-	};
-	nodes: Node[];
-	edges: Edge[];
-}
 
 describe("build pipeline", () => {
 	let aliceGraph: GraphGardenFile;
@@ -191,6 +168,12 @@ describe("bob mock server", () => {
 		bobGraph = JSON.parse(bobJson);
 
 		server = createServer((req, res) => {
+			if (req.method === "OPTIONS") {
+				res.writeHead(204, { "Access-Control-Allow-Origin": "*" });
+				res.end();
+				return;
+			}
+
 			if (req.url === "/.well-known/graphgarden.json") {
 				res.writeHead(200, {
 					"Content-Type": "application/json",
@@ -198,7 +181,7 @@ describe("bob mock server", () => {
 				});
 				res.end(bobJson);
 			} else {
-				res.writeHead(404);
+				res.writeHead(404, { "Access-Control-Allow-Origin": "*" });
 				res.end();
 			}
 		});
@@ -238,5 +221,57 @@ describe("bob mock server", () => {
 	test("returns 404 for other paths", async () => {
 		const res = await fetch(`${bobUrl}/other`);
 		expect(res.status).toBe(404);
+	});
+});
+
+describe("web component compatibility", () => {
+	test("Alice's generated file passes web component validation", () => {
+		const raw = readFileSync(ALICE_JSON_PATH, "utf-8");
+		const data: unknown = JSON.parse(raw);
+		expect(isGraphGardenFile(data)).toBe(true);
+	});
+
+	test("Alice's file builds a valid graph", () => {
+		const raw = readFileSync(ALICE_JSON_PATH, "utf-8");
+		const file = JSON.parse(raw) as GraphGardenFile;
+		const graph = buildGraph(file);
+
+		for (const node of file.nodes) {
+			expect(graph.hasNode(node.url)).toBe(true);
+			expect(graph.getNodeAttribute(node.url, "title")).toBe(node.title);
+		}
+
+		expect(graph.size).toBe(file.edges.length);
+		for (const edge of file.edges) {
+			expect(graph.hasDirectedEdge(edge.source, edge.target)).toBe(true);
+		}
+
+		expect(graph.getAttribute("base_url")).toBe(file.base_url);
+		expect(graph.getAttribute("site")).toEqual(file.site);
+	});
+
+	test("Bob's static file passes web component validation", () => {
+		const raw = readFileSync(BOB_JSON_PATH, "utf-8");
+		const data: unknown = JSON.parse(raw);
+		expect(isGraphGardenFile(data)).toBe(true);
+	});
+
+	test("Bob's file builds a valid graph", () => {
+		const raw = readFileSync(BOB_JSON_PATH, "utf-8");
+		const file = JSON.parse(raw) as GraphGardenFile;
+		const graph = buildGraph(file);
+
+		for (const node of file.nodes) {
+			expect(graph.hasNode(node.url)).toBe(true);
+			expect(graph.getNodeAttribute(node.url, "title")).toBe(node.title);
+		}
+
+		expect(graph.size).toBe(file.edges.length);
+		for (const edge of file.edges) {
+			expect(graph.hasDirectedEdge(edge.source, edge.target)).toBe(true);
+		}
+
+		expect(graph.getAttribute("base_url")).toBe(file.base_url);
+		expect(graph.getAttribute("site")).toEqual(file.site);
 	});
 });

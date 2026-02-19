@@ -13,5 +13,6 @@
 		"skipLibCheck": true,
 		"lib": ["ES2023", "DOM", "DOM.Iterable"]
 	},
-	"include": ["src/**/*.ts"]
+	"include": ["src/**/*.ts"],
+	"exclude": ["src/**/*.test.ts"]
 }
