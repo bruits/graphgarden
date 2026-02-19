@@ -42,9 +42,8 @@ We're also committed to fostering a welcoming and respectful community. Any issu
 
 ## Getting Started
 
-GraphGarden is a fairly standard Rust project with a typical directory structure. The only prerequisite is to have the latest stable version of [Rust](https://www.rust-lang.org/) installed.
+GraphGarden is a polyglot monorepo. The Rust side uses [Cargo workspaces](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) (`crates/`), and the TypeScript side uses [pnpm workspaces](https://pnpm.io/workspaces) (`packages/`). Prerequisites: the latest stable [Rust](https://www.rust-lang.org/) toolchain, plus [Node.js](https://nodejs.org/) and [pnpm](https://pnpm.io/) for the web component and e2e tests.
 
-GraphGarden is a Rust monorepo using [Cargo workspaces](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html). It contains multiple crates (Rust packages) in the `crates/` directory:
 
 ### GraphGarden Protocol
 
@@ -57,6 +56,14 @@ GraphGarden is a Rust monorepo using [Cargo workspaces](https://doc.rust-lang.or
 ### GraphGarden CLI
 
 `graphgarden` is the CLI built on top of `graphgarden-core`. It provides the user-facing commands to crawl a site and generate its protocol file.
+
+### GraphGarden Web Component
+
+`graphgarden-web` is the `<graph-garden>` custom element that renders an interactive node graph from a site's `graphgarden.json` file. It is bundled with [esbuild](https://esbuild.github.io/) into ESM and IIFE formats so sites can drop it in via `<script>` tag or `npm install`.
+
+```sh
+cd packages/graphgarden-web && pnpm install && pnpm run build
+```
 
 ### E2E Fixtures
 

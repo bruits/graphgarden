@@ -1,0 +1,14 @@
+{
+  "name": "graphgarden",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A protocol, and related tools, to turn web rings into explorable node graphs",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bruits/graphgarden",
+    "directory": "packages/graphgarden"
+  },
+  "main": "index.js",
+  "types": "index.d.ts"
+}
