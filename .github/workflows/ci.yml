@@ -22,7 +22,7 @@ env:
 
 jobs:
   fmt:
-    name: Format
+    name: RS Format
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -37,7 +37,7 @@ jobs:
         run: cargo fmt --all -- --check
 
   lint:
-    name: Lint
+    name: RS Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -52,7 +52,7 @@ jobs:
         run: cargo clippy --all --all-targets
 
   test:
-    name: Test
+    name: RS Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -63,3 +63,100 @@ jobs:
 
       - name: Run tests
         run: cargo test --all
+
+  ts-fmt:
+    name: TS Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run oxfmt
+        run: pnpm run fmt:check
+
+  ts-lint:
+    name: TS Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run oxlint
+        run: pnpm run lint
+
+  ts-build:
+    name: TS Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build graphgarden-web
+        run: pnpm run build
+
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: moonrepo/setup-rust@v1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            fixtures/pnpm-lock.yaml
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install fixtures dependencies
+        run: cd fixtures && pnpm install --frozen-lockfile
+
+      - name: Run e2e tests
+        run: pnpm run test:e2e

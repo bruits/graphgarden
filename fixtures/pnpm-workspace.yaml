@@ -1,0 +1,4 @@
+# Standalone workspace root — prevents pnpm from walking up to the parent
+# workspace. Only the fixtures root package is installed here; alice/ and bob/
+# are independent fixture sites, not workspace packages.
+packages: []

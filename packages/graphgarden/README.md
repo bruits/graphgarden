@@ -25,7 +25,7 @@ npm install graphgarden-web
 ```
 
 ```js
-import "graphgarden"
+import "graphgarden";
 ```
 
 ```html

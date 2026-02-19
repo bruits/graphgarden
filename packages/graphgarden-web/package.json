@@ -1,35 +1,35 @@
 {
-  "name": "graphgarden-web",
-  "version": "0.1.0",
-  "type": "module",
-  "description": "Web component that renders an interactive GraphGarden node graph",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/bruits/graphgarden",
-    "directory": "packages/graphgarden-web"
-  },
-  "files": [
-    "dist"
-  ],
-  "main": "dist/graphgarden.js",
-  "module": "dist/graphgarden.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/graphgarden.js",
-      "default": "./dist/graphgarden.js"
-    },
-    "./iife": "./dist/graphgarden.iife.js"
-  },
-  "scripts": {
-    "build": "tsx build.ts && tsc",
-    "dev": "tsx watch build.ts"
-  },
-  "devDependencies": {
-    "esbuild": "^0.25",
-    "tsx": "^4",
-    "typescript": "^5"
-  }
+	"name": "graphgarden-web",
+	"version": "0.1.0",
+	"description": "Web component that renders an interactive GraphGarden node graph",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/bruits/graphgarden",
+		"directory": "packages/graphgarden-web"
+	},
+	"files": [
+		"dist"
+	],
+	"type": "module",
+	"main": "dist/graphgarden.js",
+	"module": "dist/graphgarden.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/graphgarden.js",
+			"default": "./dist/graphgarden.js"
+		},
+		"./iife": "./dist/graphgarden.iife.js"
+	},
+	"scripts": {
+		"build": "tsx build.ts && tsc",
+		"dev": "tsx watch build.ts"
+	},
+	"devDependencies": {
+		"esbuild": "^0.25",
+		"tsx": "^4",
+		"typescript": "^5"
+	}
 }
