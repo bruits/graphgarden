@@ -1,13 +1,13 @@
 [package]
 name = "graphgarden-core"
-version = "0.0.1"
+version = "0.1.0"
 description = "Core library implementing the GraphGarden protocol — crawl a site and build its link graph"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
-graphgarden-protocol = { path = "../graphgarden-protocol" }
+graphgarden-protocol = { path = "../graphgarden-protocol" , version = "0.1.0" }
 globset = "0.4"
 jiff = "0.2"
 lol_html = "2"
