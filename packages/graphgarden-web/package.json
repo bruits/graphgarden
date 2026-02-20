@@ -1,6 +1,6 @@
 {
 	"name": "graphgarden-web",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"description": "Web component that renders an interactive GraphGarden node graph",
 	"license": "MIT",
 	"repository": {
