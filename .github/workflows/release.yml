@@ -37,6 +37,9 @@ jobs:
       - name: Build graphgarden-web
         run: pnpm --filter graphgarden-web run build
 
+      - name: Configure npm auth
+        run: echo "//registry.npmjs.org/:_authToken=\${NPM_TOKEN}" > .npmrc
+
       - name: Release
         uses: bruits/sampo/crates/sampo-github-action@main
         with:

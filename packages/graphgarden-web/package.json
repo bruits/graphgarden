@@ -24,7 +24,7 @@
 		"./iife": "./dist/graphgarden.iife.js"
 	},
 	"scripts": {
-		"build": "tsx build.ts && tsc",
+		"build": "rm -rf dist && tsx build.ts && tsc",
 		"prepack": "pnpm run build",
 		"dev": "tsx watch build.ts",
 		"test": "vitest run",
