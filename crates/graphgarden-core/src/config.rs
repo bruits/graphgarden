@@ -2,6 +2,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 use serde::Deserialize;
+use url::Url;
 
 use crate::error::{Error, Result};
 
@@ -65,6 +66,53 @@ impl Config {
         let content = std::fs::read_to_string(path).map_err(Error::ConfigRead)?;
         content.parse()
     }
+
+    /// Validates the parsed config: checks that `base_url` is a well-formed
+    /// HTTP(S) URL with a trailing slash, that `output.dir` exists as a
+    /// directory, and that every friend URL is a valid HTTP(S) URL.
+    pub fn validate(&self) -> Result<()> {
+        validate_base_url(&self.site.base_url)?;
+
+        let output_dir = Path::new(&self.output.dir);
+        if !output_dir.is_dir() {
+            return Err(Error::OutputDirNotFound(output_dir.to_path_buf()));
+        }
+
+        for friend in &self.friends {
+            validate_friend_url(friend)?;
+        }
+
+        Ok(())
+    }
+}
+
+/// Validates that a URL is a well-formed HTTP(S) URL.
+fn validate_http_url(raw: &str) -> std::result::Result<Url, String> {
+    let parsed = Url::parse(raw).map_err(|e| e.to_string())?;
+    match parsed.scheme() {
+        "http" | "https" => Ok(parsed),
+        other => Err(format!("scheme must be http or https, got '{other}'")),
+    }
+}
+
+/// Validates `base_url`: must be a well-formed HTTP(S) URL ending with `/`.
+fn validate_base_url(raw: &str) -> Result<()> {
+    validate_http_url(raw).map_err(|reason| Error::InvalidBaseUrl(raw.to_owned(), reason))?;
+
+    if !raw.ends_with('/') {
+        return Err(Error::InvalidBaseUrl(
+            raw.to_owned(),
+            String::from("must end with a trailing slash"),
+        ));
+    }
+
+    Ok(())
+}
+
+/// Validates a friend URL: must be a well-formed HTTP(S) URL.
+fn validate_friend_url(raw: &str) -> Result<()> {
+    validate_http_url(raw).map_err(|reason| Error::InvalidFriendUrl(raw.to_owned(), reason))?;
+    Ok(())
 }
 
 impl FromStr for Config {
@@ -79,6 +127,24 @@ impl FromStr for Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::{OutputConfig, ParseConfig, SiteConfig};
+
+    /// Helper to build a config with the given base_url, output dir, and friends.
+    fn test_config(base_url: &str, output_dir: &str, friends: Vec<String>) -> Config {
+        Config {
+            site: SiteConfig {
+                base_url: String::from(base_url),
+                title: String::from("Test"),
+                description: None,
+                language: None,
+            },
+            friends,
+            output: OutputConfig {
+                dir: String::from(output_dir),
+            },
+            parse: ParseConfig::default(),
+        }
+    }
 
     #[test]
     fn parse_full_config() {
@@ -189,5 +255,81 @@ mod tests {
             result,
             Err(crate::error::Error::ConfigNotFound(_))
         ));
+    }
+
+    // ---- validate() tests ----
+
+    #[test]
+    fn validate_accepts_valid_config() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config(
+            "https://alice.dev/",
+            tmp.path().to_str().unwrap(),
+            vec![String::from("https://bob.dev/")],
+        );
+        config
+            .validate()
+            .expect("valid config should pass validation");
+    }
+
+    #[test]
+    fn validate_rejects_non_url_base_url() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config("not a url", tmp.path().to_str().unwrap(), vec![]);
+        let err = config.validate().unwrap_err();
+        assert!(matches!(err, Error::InvalidBaseUrl(..)));
+    }
+
+    #[test]
+    fn validate_rejects_non_http_base_url() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config("ftp://alice.dev/", tmp.path().to_str().unwrap(), vec![]);
+        let err = config.validate().unwrap_err();
+        assert!(matches!(err, Error::InvalidBaseUrl(_, ref reason) if reason.contains("http")),);
+    }
+
+    #[test]
+    fn validate_rejects_base_url_without_trailing_slash() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config("https://alice.dev", tmp.path().to_str().unwrap(), vec![]);
+        let err = config.validate().unwrap_err();
+        assert!(
+            matches!(err, Error::InvalidBaseUrl(_, ref reason) if reason.contains("trailing slash")),
+        );
+    }
+
+    #[test]
+    fn validate_rejects_missing_output_dir() {
+        let config = test_config(
+            "https://alice.dev/",
+            "/tmp/does_not_exist_graphgarden_test",
+            vec![],
+        );
+        let err = config.validate().unwrap_err();
+        assert!(matches!(err, Error::OutputDirNotFound(_)));
+    }
+
+    #[test]
+    fn validate_rejects_invalid_friend_url() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config(
+            "https://alice.dev/",
+            tmp.path().to_str().unwrap(),
+            vec![String::from("not a url")],
+        );
+        let err = config.validate().unwrap_err();
+        assert!(matches!(err, Error::InvalidFriendUrl(..)));
+    }
+
+    #[test]
+    fn validate_rejects_non_http_friend_url() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config(
+            "https://alice.dev/",
+            tmp.path().to_str().unwrap(),
+            vec![String::from("ftp://bob.dev/")],
+        );
+        let err = config.validate().unwrap_err();
+        assert!(matches!(err, Error::InvalidFriendUrl(_, ref reason) if reason.contains("http")),);
     }
 }

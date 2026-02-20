@@ -18,6 +18,15 @@ pub enum Error {
     #[error("failed to parse config: {0}")]
     ConfigParse(#[from] toml::de::Error),
 
+    #[error("invalid base_url '{0}': {1}")]
+    InvalidBaseUrl(String, String),
+
+    #[error("invalid friend URL '{0}': {1}")]
+    InvalidFriendUrl(String, String),
+
+    #[error("output directory does not exist: {0}")]
+    OutputDirNotFound(PathBuf),
+
     #[error("failed to serialize JSON: {0}")]
     JsonSerialize(#[source] serde_json::Error),
 

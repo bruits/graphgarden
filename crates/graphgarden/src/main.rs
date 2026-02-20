@@ -38,13 +38,9 @@ fn run_build(config_path: &Path) -> Result<()> {
         config_path.display()
     ))?;
 
+    config.validate().context("config validation failed")?;
+
     let output_dir = PathBuf::from(&config.output.dir);
-    if !output_dir.is_dir() {
-        anyhow::bail!(
-            "output directory '{}' does not exist or is not a directory — build your site first",
-            output_dir.display()
-        );
-    }
 
     let public_file = graphgarden_core::build::build(&config)
         .context("failed to build the graph from the output directory")?;

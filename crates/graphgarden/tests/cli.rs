@@ -175,9 +175,7 @@ fn build_missing_output_dir() {
         .args(["build", "--config", config_path.to_str().unwrap()])
         .assert()
         .failure()
-        .stderr(predicates::str::contains(
-            "does not exist or is not a directory",
-        ));
+        .stderr(predicates::str::contains("output directory does not exist"));
 }
 
 #[test]
