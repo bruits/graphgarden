@@ -30,7 +30,9 @@
 		"test:watch": "vitest"
 	},
 	"dependencies": {
-		"graphology": "^0.25"
+		"graphology": "^0.25",
+		"graphology-layout-forceatlas2": "^0.10",
+		"sigma": "^3"
 	},
 	"devDependencies": {
 		"esbuild": "^0.25",

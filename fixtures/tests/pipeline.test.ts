@@ -7,6 +7,8 @@ import {
 	isGraphGardenFile,
 	buildGraph,
 	fetchFriendGraphs,
+	GraphGarden,
+	DEFAULT_CONFIG,
 	type GraphGardenFile,
 } from "graphgarden-web";
 
@@ -17,6 +19,7 @@ const ALICE_JSON_PATH = resolve(ALICE_DIST, ".well-known", "graphgarden.json");
 const BOB_JSON_PATH = resolve(ROOT, "bob", "graphgarden.json");
 const CARGO_ROOT = resolve(ROOT, "..");
 const GRAPHGARDEN_BIN = resolve(CARGO_ROOT, "target", "debug", "graphgarden");
+const WEB_COMPONENT_DIR = resolve(ROOT, "../packages/graphgarden-web");
 
 describe("build pipeline", () => {
 	let aliceGraph: GraphGardenFile;
@@ -26,6 +29,8 @@ describe("build pipeline", () => {
 			rmSync(ALICE_DIST, { recursive: true });
 		}
 
+		execSync("pnpm install", { cwd: WEB_COMPONENT_DIR, stdio: "pipe" });
+		execSync("pnpm run build", { cwd: WEB_COMPONENT_DIR, stdio: "pipe" });
 		execSync("pnpm install", { cwd: ALICE_DIR, stdio: "pipe" });
 		execSync("pnpm run build", { cwd: ALICE_DIR, stdio: "pipe" });
 		execSync("cargo build", { cwd: CARGO_ROOT, stdio: "pipe" });
@@ -237,9 +242,9 @@ describe("bob mock server", () => {
 			nodes: [{ url: "/", title: "Home" }],
 			edges: [{ source: "/", target: `${bobUrl}/`, type: "friend" }],
 		};
-		const graph = buildGraph(localFile);
+		const graph = buildGraph(localFile, DEFAULT_CONFIG);
 
-		await fetchFriendGraphs(graph);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
 
 		for (const node of bobGraph.nodes) {
 			const absoluteUrl = new URL(node.url, bobGraph.base_url).href;
@@ -266,7 +271,7 @@ describe("web component compatibility", () => {
 	test("Alice's file builds a valid graph", () => {
 		const raw = readFileSync(ALICE_JSON_PATH, "utf-8");
 		const file = JSON.parse(raw) as GraphGardenFile;
-		const graph = buildGraph(file);
+		const graph = buildGraph(file, DEFAULT_CONFIG);
 
 		for (const node of file.nodes) {
 			const absoluteUrl = new URL(node.url, file.base_url).href;
@@ -294,7 +299,7 @@ describe("web component compatibility", () => {
 	test("Bob's file builds a valid graph", () => {
 		const raw = readFileSync(BOB_JSON_PATH, "utf-8");
 		const file = JSON.parse(raw) as GraphGardenFile;
-		const graph = buildGraph(file);
+		const graph = buildGraph(file, DEFAULT_CONFIG);
 
 		for (const node of file.nodes) {
 			const absoluteUrl = new URL(node.url, file.base_url).href;
@@ -311,5 +316,70 @@ describe("web component compatibility", () => {
 
 		expect(graph.getAttribute("base_url")).toBe(file.base_url);
 		expect(graph.getAttribute("site")).toEqual(file.site);
+	});
+});
+
+describe("web component rendering", () => {
+	test("Alice's built index.html contains the graph-garden element", () => {
+		const html = readFileSync(resolve(ALICE_DIST, "index.html"), "utf-8");
+		expect(html).toContain("<graph-garden");
+		expect(html).toMatch(/<script type="module" src="\/_astro\/.*\.js"><\/script>/);
+	});
+
+	test("web component loads graph and computes layout from Alice's JSON", async () => {
+		const aliceJson = readFileSync(ALICE_JSON_PATH, "utf-8");
+		const bobJson = readFileSync(BOB_JSON_PATH, "utf-8");
+		const aliceFile = JSON.parse(aliceJson) as GraphGardenFile;
+		const bobFile = JSON.parse(bobJson) as GraphGardenFile;
+
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = async (input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.endsWith("/.well-known/graphgarden.json")) {
+				if (url.includes("bob.test")) {
+					return new Response(bobJson, {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					});
+				}
+				return new Response(aliceJson, {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				});
+			}
+			return new Response(null, { status: 404 });
+		};
+
+		try {
+			const element = document.createElement("graph-garden") as InstanceType<typeof GraphGarden>;
+			document.body.appendChild(element);
+
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(element.graph).not.toBeNull();
+			expect(element.graph!.order).toBeGreaterThan(0);
+
+			element.graph!.forEachNode((_node, attrs) => {
+				expect(attrs.x).toBeTypeOf("number");
+				expect(attrs.y).toBeTypeOf("number");
+			});
+
+			// Verify Alice's nodes
+			for (const node of aliceFile.nodes) {
+				const absoluteUrl = new URL(node.url, aliceFile.base_url).href;
+				expect(element.graph!.hasNode(absoluteUrl)).toBe(true);
+			}
+
+			// Verify Bob's nodes were merged via fetchFriendGraphs
+			for (const node of bobFile.nodes) {
+				const absoluteUrl = new URL(node.url, bobFile.base_url).href;
+				expect(element.graph!.hasNode(absoluteUrl)).toBe(true);
+				expect(element.graph!.getNodeAttribute(absoluteUrl, "title")).toBe(node.title);
+			}
+
+			element.remove();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
 	});
 });

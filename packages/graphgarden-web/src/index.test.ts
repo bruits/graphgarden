@@ -1,7 +1,16 @@
-import { describe, test, expect, vi, afterEach } from "vitest";
+import { describe, test, expect, vi, afterEach, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { isGraphGardenFile, buildGraph, fetchFriendGraphs, GraphGardenFile } from "./index.js";
+import Graph from "graphology";
+import {
+	isGraphGardenFile,
+	buildGraph,
+	fetchFriendGraphs,
+	assignLayout,
+	GraphGardenFile,
+	GraphGarden,
+	DEFAULT_CONFIG,
+} from "./index.js";
 
 function validFile(): Record<string, unknown> {
 	return {
@@ -117,35 +126,35 @@ describe("isGraphGardenFile", () => {
 
 describe("buildGraph", () => {
 	test("correct number of nodes", () => {
-		const graph = buildGraph(validFile() as unknown as GraphGardenFile);
+		const graph = buildGraph(validFile() as unknown as GraphGardenFile, DEFAULT_CONFIG);
 		// 1 declared node + 1 friend-edge target auto-created
 		expect(graph.order).toBe(2);
 	});
 
 	test("node attributes contain title", () => {
-		const graph = buildGraph(validFile() as unknown as GraphGardenFile);
+		const graph = buildGraph(validFile() as unknown as GraphGardenFile, DEFAULT_CONFIG);
 		expect(graph.getNodeAttributes("https://example.com/page")).toHaveProperty("title", "Page");
 	});
 
 	test("correct number of edges", () => {
-		const graph = buildGraph(validFile() as unknown as GraphGardenFile);
+		const graph = buildGraph(validFile() as unknown as GraphGardenFile, DEFAULT_CONFIG);
 		expect(graph.size).toBe(1);
 	});
 
 	test("edge attributes contain type", () => {
-		const graph = buildGraph(validFile() as unknown as GraphGardenFile);
+		const graph = buildGraph(validFile() as unknown as GraphGardenFile, DEFAULT_CONFIG);
 		const edge = graph.edges()[0];
 		expect(graph.getEdgeAttributes(edge)).toHaveProperty("type", "friend");
 	});
 
 	test("graph attributes contain base_url and site", () => {
-		const graph = buildGraph(validFile() as unknown as GraphGardenFile);
+		const graph = buildGraph(validFile() as unknown as GraphGardenFile, DEFAULT_CONFIG);
 		expect(graph.getAttribute("base_url")).toBe("https://example.com");
 		expect(graph.getAttribute("site")).toEqual({ title: "Test Site" });
 	});
 
 	test("friend-edge target nodes are auto-created", () => {
-		const graph = buildGraph(validFile() as unknown as GraphGardenFile);
+		const graph = buildGraph(validFile() as unknown as GraphGardenFile, DEFAULT_CONFIG);
 		expect(graph.hasNode("https://friend.com/")).toBe(true);
 	});
 
@@ -158,7 +167,7 @@ describe("buildGraph", () => {
 			nodes: [],
 			edges: [],
 		};
-		const graph = buildGraph(file);
+		const graph = buildGraph(file, DEFAULT_CONFIG);
 		expect(graph.order).toBe(0);
 		expect(graph.size).toBe(0);
 		expect(graph.getAttribute("base_url")).toBe("https://empty.com");
@@ -176,13 +185,13 @@ describe("buildGraph with fixture data", () => {
 	});
 
 	test("graph has expected node count", () => {
-		const graph = buildGraph(data as GraphGardenFile);
+		const graph = buildGraph(data as GraphGardenFile, DEFAULT_CONFIG);
 		// Bob has 4 declared nodes + 2 external friend targets = 6 nodes
 		expect(graph.order).toBe(6);
 	});
 
 	test("graph has expected edge count", () => {
-		const graph = buildGraph(data as GraphGardenFile);
+		const graph = buildGraph(data as GraphGardenFile, DEFAULT_CONFIG);
 		expect(graph.size).toBe(9);
 	});
 });
@@ -230,10 +239,10 @@ describe("fetchFriendGraphs", () => {
 	}
 
 	test("merges friend nodes with absolute URL keys", async () => {
-		const graph = buildGraph(localFileWithFriend());
+		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
 		stubFetchWith({ json: () => Promise.resolve(friendFile()) });
 
-		await fetchFriendGraphs(graph);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
 
 		expect(graph.hasNode("https://friend.test/")).toBe(true);
 		expect(graph.getNodeAttribute("https://friend.test/", "title")).toBe("Friend Home");
@@ -242,10 +251,10 @@ describe("fetchFriendGraphs", () => {
 	});
 
 	test("merges friend edges with resolved URLs", async () => {
-		const graph = buildGraph(localFileWithFriend());
+		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
 		stubFetchWith({ json: () => Promise.resolve(friendFile()) });
 
-		await fetchFriendGraphs(graph);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
 
 		expect(graph.hasDirectedEdge("https://friend.test/", "https://friend.test/blog/")).toBe(true);
 	});
@@ -265,55 +274,55 @@ describe("fetchFriendGraphs", () => {
 				{ source: "/about/", target: "https://friend.test/blog/", type: "friend" },
 			],
 		};
-		const graph = buildGraph(file);
+		const graph = buildGraph(file, DEFAULT_CONFIG);
 		stubFetchWith({ json: () => Promise.resolve(friendFile()) });
 
-		await fetchFriendGraphs(graph);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
 
 		expect(fetch).toHaveBeenCalledTimes(1);
 		expect(fetch).toHaveBeenCalledWith("https://friend.test/.well-known/graphgarden.json");
 	});
 
 	test("handles fetch rejection gracefully", async () => {
-		const graph = buildGraph(localFileWithFriend());
+		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
 		const initialOrder = graph.order;
 		const initialSize = graph.size;
 
 		vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network error")));
 		vi.spyOn(console, "warn").mockImplementation(() => {});
 
-		await fetchFriendGraphs(graph);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
 
 		expect(graph.order).toBe(initialOrder);
 		expect(graph.size).toBe(initialSize);
 	});
 
 	test("handles non-OK response gracefully", async () => {
-		const graph = buildGraph(localFileWithFriend());
+		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
 		const initialOrder = graph.order;
 
 		stubFetchWith({ ok: false, status: 404, statusText: "Not Found" } as Partial<Response>);
 		vi.spyOn(console, "warn").mockImplementation(() => {});
 
-		await fetchFriendGraphs(graph);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
 
 		expect(graph.order).toBe(initialOrder);
 	});
 
 	test("handles invalid response shape gracefully", async () => {
-		const graph = buildGraph(localFileWithFriend());
+		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
 		const initialOrder = graph.order;
 
 		stubFetchWith({ json: () => Promise.resolve({ invalid: true }) });
 		vi.spyOn(console, "warn").mockImplementation(() => {});
 
-		await fetchFriendGraphs(graph);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
 
 		expect(graph.order).toBe(initialOrder);
 	});
 
 	test("resolves relative paths against friend base_url", async () => {
-		const graph = buildGraph(localFileWithFriend());
+		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
 		const file: GraphGardenFile = {
 			version: "0.1.0",
 			generated_at: "2025-01-01T00:00:00Z",
@@ -324,44 +333,71 @@ describe("fetchFriendGraphs", () => {
 		};
 		stubFetchWith({ json: () => Promise.resolve(file) });
 
-		await fetchFriendGraphs(graph);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
 
 		expect(graph.hasNode("https://friend.test/deep/path/")).toBe(true);
 		expect(graph.getNodeAttribute("https://friend.test/deep/path/", "title")).toBe("Deep Page");
 	});
 
 	test("returns the mutated graph", async () => {
-		const graph = buildGraph(localFileWithFriend());
+		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
 		stubFetchWith({ json: () => Promise.resolve(friendFile()) });
 
-		const result = await fetchFriendGraphs(graph);
+		const result = await fetchFriendGraphs(graph, DEFAULT_CONFIG);
 
 		expect(result).toBe(graph);
 	});
 
-	test("graph with no friend edges skips fetching", async () => {
-		const graph = buildGraph({
+	test("friend-of-friend nodes get correct size and color", async () => {
+		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
+
+		// Friend file with a friend edge to an unknown third-party URL
+		const file: GraphGardenFile = {
 			version: "0.1.0",
 			generated_at: "2025-01-01T00:00:00Z",
-			base_url: "https://local.test/",
-			site: { title: "Local" },
-			nodes: [
-				{ url: "/", title: "Home" },
-				{ url: "/about/", title: "About" },
-			],
-			edges: [{ source: "/", target: "/about/", type: "internal" }],
-		});
+			base_url: "https://friend.test/",
+			site: { title: "Friend" },
+			nodes: [{ url: "/", title: "Friend Home" }],
+			edges: [{ source: "/", target: "https://charlie.test/", type: "friend" }],
+		};
+		stubFetchWith({ json: () => Promise.resolve(file) });
+
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+
+		// Charlie was implicitly created by the friend edge
+		expect(graph.hasNode("https://charlie.test/")).toBe(true);
+		expect(graph.getNodeAttribute("https://charlie.test/", "size")).toBe(DEFAULT_CONFIG.nodeSize);
+		expect(graph.getNodeAttribute("https://charlie.test/", "color")).toBe(
+			DEFAULT_CONFIG.friendNodeColor,
+		);
+	});
+
+	test("graph with no friend edges skips fetching", async () => {
+		const graph = buildGraph(
+			{
+				version: "0.1.0",
+				generated_at: "2025-01-01T00:00:00Z",
+				base_url: "https://local.test/",
+				site: { title: "Local" },
+				nodes: [
+					{ url: "/", title: "Home" },
+					{ url: "/about/", title: "About" },
+				],
+				edges: [{ source: "/", target: "/about/", type: "internal" }],
+			},
+			DEFAULT_CONFIG,
+		);
 
 		const mockFetch = vi.fn();
 		vi.stubGlobal("fetch", mockFetch);
 
-		await fetchFriendGraphs(graph);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
 
 		expect(mockFetch).not.toHaveBeenCalled();
 	});
 
 	test("deduplicates nodes when friend edges point back to local site", async () => {
-		const graph = buildGraph(localFileWithFriend());
+		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
 
 		// Friend file with an edge pointing back to the local site
 		const file: GraphGardenFile = {
@@ -374,7 +410,7 @@ describe("fetchFriendGraphs", () => {
 		};
 		stubFetchWith({ json: () => Promise.resolve(file) });
 
-		await fetchFriendGraphs(graph);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
 
 		// Local "/" was resolved to "https://local.test/" by buildGraph;
 		// the friend edge target is the same URL, so no duplicate is created.
@@ -395,7 +431,7 @@ describe("fetchFriendGraphs", () => {
 				{ source: "/", target: "https://good.test/", type: "friend" },
 			],
 		};
-		const graph = buildGraph(localFile);
+		const graph = buildGraph(localFile, DEFAULT_CONFIG);
 
 		const badFile: GraphGardenFile = {
 			version: "0.1.0",
@@ -431,10 +467,260 @@ describe("fetchFriendGraphs", () => {
 		);
 		vi.spyOn(console, "warn").mockImplementation(() => {});
 
-		await fetchFriendGraphs(graph);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
 
 		expect(graph.hasNode("https://good.test/")).toBe(true);
 		expect(graph.getNodeAttribute("https://good.test/", "title")).toBe("Good Home");
 		expect(console.warn).toHaveBeenCalled();
+	});
+});
+
+describe("assignLayout", () => {
+	test("assigns x and y coordinates to all nodes", () => {
+		const file: GraphGardenFile = {
+			version: "0.1.0",
+			generated_at: "2025-01-01T00:00:00Z",
+			base_url: "https://example.com",
+			site: { title: "Test" },
+			nodes: [
+				{ url: "/a", title: "A" },
+				{ url: "/b", title: "B" },
+				{ url: "/c", title: "C" },
+			],
+			edges: [
+				{ source: "/a", target: "/b", type: "internal" },
+				{ source: "/b", target: "/c", type: "internal" },
+			],
+		};
+		const graph = buildGraph(file, DEFAULT_CONFIG);
+
+		assignLayout(graph, DEFAULT_CONFIG.iterations);
+
+		graph.forEachNode((_node, attributes) => {
+			expect(attributes.x).toBeTypeOf("number");
+			expect(attributes.y).toBeTypeOf("number");
+			expect(Number.isFinite(attributes.x)).toBe(true);
+			expect(Number.isFinite(attributes.y)).toBe(true);
+		});
+	});
+
+	test("handles empty graph without error", () => {
+		const graph = new Graph();
+		expect(() => assignLayout(graph, DEFAULT_CONFIG.iterations)).not.toThrow();
+	});
+
+	test("handles single-node graph", () => {
+		const file: GraphGardenFile = {
+			version: "0.1.0",
+			generated_at: "2025-01-01T00:00:00Z",
+			base_url: "https://example.com",
+			site: { title: "Test" },
+			nodes: [{ url: "/", title: "Home" }],
+			edges: [],
+		};
+		const graph = buildGraph(file, DEFAULT_CONFIG);
+
+		assignLayout(graph, DEFAULT_CONFIG.iterations);
+
+		expect(graph.getNodeAttribute("https://example.com/", "x")).toBeTypeOf("number");
+		expect(graph.getNodeAttribute("https://example.com/", "y")).toBeTypeOf("number");
+	});
+
+	test("produces distinct positions for connected nodes", () => {
+		const file: GraphGardenFile = {
+			version: "0.1.0",
+			generated_at: "2025-01-01T00:00:00Z",
+			base_url: "https://example.com",
+			site: { title: "Test" },
+			nodes: [
+				{ url: "/a", title: "A" },
+				{ url: "/b", title: "B" },
+			],
+			edges: [{ source: "/a", target: "/b", type: "internal" }],
+		};
+		const graph = buildGraph(file, DEFAULT_CONFIG);
+
+		assignLayout(graph, DEFAULT_CONFIG.iterations);
+
+		const ax = graph.getNodeAttribute("https://example.com/a", "x");
+		const ay = graph.getNodeAttribute("https://example.com/a", "y");
+		const bx = graph.getNodeAttribute("https://example.com/b", "x");
+		const by = graph.getNodeAttribute("https://example.com/b", "y");
+
+		// With 200 iterations of ForceAtlas2 the nodes should not remain at the exact same position
+		const samePosition = ax === bx && ay === by;
+		expect(samePosition).toBe(false);
+	});
+});
+
+describe("GraphGarden custom element", () => {
+	beforeEach(() => {
+		vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("no fetch in tests")));
+		vi.spyOn(console, "error").mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		// Remove any registered elements from the DOM
+		document.querySelectorAll("graph-garden").forEach((el) => el.remove());
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+	});
+
+	test("creates a Shadow DOM with a container div when connected", () => {
+		const element = document.createElement("graph-garden") as GraphGarden;
+		document.body.appendChild(element);
+
+		expect(element.shadowRoot).not.toBeNull();
+		const container = element.shadowRoot!.querySelector("div");
+		expect(container).not.toBeNull();
+	});
+
+	test("shadow DOM contains a style element with host display block", () => {
+		const element = document.createElement("graph-garden") as GraphGarden;
+		document.body.appendChild(element);
+
+		const style = element.shadowRoot!.querySelector("style");
+		expect(style).not.toBeNull();
+		expect(style!.textContent).toContain(":host");
+		expect(style!.textContent).toContain("display: block");
+	});
+
+	test("cleans up shadow DOM content on disconnect", async () => {
+		const element = document.createElement("graph-garden") as GraphGarden;
+
+		document.body.appendChild(element);
+
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(element.shadowRoot!.querySelector("div")).not.toBeNull();
+
+		element.remove();
+
+		expect(element.shadowRoot!.innerHTML).toBe("");
+		expect(element.graph).toBeNull();
+		expect(element.renderer).toBeNull();
+	});
+
+	test("graph edges have types registered as Sigma programs", async () => {
+		const file = validFile();
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockResolvedValue({
+				ok: true,
+				json: () => Promise.resolve(file),
+			}),
+		);
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		const element = document.createElement("graph-garden") as GraphGarden;
+		document.body.appendChild(element);
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(element.graph).not.toBeNull();
+
+		// Every edge type must be one we register in edgeProgramClasses
+		const registeredTypes = new Set(["internal", "friend"]);
+		element.graph!.forEachEdge((_edge, attrs) => {
+			expect(registeredTypes.has(attrs.type)).toBe(true);
+		});
+
+		element.remove();
+	});
+
+	test("successful fetch populates graph with layout coordinates", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockResolvedValue({
+				ok: true,
+				json: () => Promise.resolve(validFile()),
+			}),
+		);
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		const element = document.createElement("graph-garden") as GraphGarden;
+		document.body.appendChild(element);
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(element.graph).not.toBeNull();
+		expect(element.graph!.order).toBeGreaterThan(0);
+		element.graph!.forEachNode((_node, attrs) => {
+			expect(attrs.x).toBeTypeOf("number");
+			expect(attrs.y).toBeTypeOf("number");
+		});
+
+		element.remove();
+	});
+});
+
+describe("customization", () => {
+	test("buildGraph applies custom colors to nodes", () => {
+		const config = { ...DEFAULT_CONFIG, localNodeColor: "#ff0000" };
+		const graph = buildGraph(validFile() as unknown as GraphGardenFile, config);
+		expect(graph.getNodeAttribute("https://example.com/page", "color")).toBe("#ff0000");
+	});
+
+	test("buildGraph applies custom node size", () => {
+		const config = { ...DEFAULT_CONFIG, nodeSize: 10 };
+		const graph = buildGraph(validFile() as unknown as GraphGardenFile, config);
+		expect(graph.getNodeAttribute("https://example.com/page", "size")).toBe(10);
+	});
+
+	test("buildGraph applies custom edge size", () => {
+		const config = { ...DEFAULT_CONFIG, edgeSize: 2 };
+		const graph = buildGraph(validFile() as unknown as GraphGardenFile, config);
+		const edge = graph.edges()[0];
+		expect(graph.getEdgeAttribute(edge, "size")).toBe(2);
+	});
+
+	test("buildGraph applies friend color to friend edge targets", () => {
+		const config = { ...DEFAULT_CONFIG, friendNodeColor: "#00ff00" };
+		const graph = buildGraph(validFile() as unknown as GraphGardenFile, config);
+		expect(graph.getNodeAttribute("https://friend.com/", "color")).toBe("#00ff00");
+	});
+
+	test("assignLayout respects custom iterations", () => {
+		const file: GraphGardenFile = {
+			version: "0.1.0",
+			generated_at: "2025-01-01T00:00:00Z",
+			base_url: "https://example.com",
+			site: { title: "Test" },
+			nodes: [
+				{ url: "/a", title: "A" },
+				{ url: "/b", title: "B" },
+			],
+			edges: [{ source: "/a", target: "/b", type: "internal" }],
+		};
+		const graph = buildGraph(file, DEFAULT_CONFIG);
+		// With just 1 iteration, layout should still assign coordinates
+		assignLayout(graph, 1);
+		expect(graph.getNodeAttribute("https://example.com/a", "x")).toBeTypeOf("number");
+	});
+
+	test("invalid attribute values fall back to defaults", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockResolvedValue({
+				ok: true,
+				json: () => Promise.resolve(validFile()),
+			}),
+		);
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		const element = document.createElement("graph-garden") as GraphGarden;
+		element.setAttribute("node-size", "not-a-number");
+		element.setAttribute("iterations", "-5");
+		element.setAttribute("edge-size", "0");
+		document.body.appendChild(element);
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(element.graph).not.toBeNull();
+		element.graph!.forEachNode((_node, attrs) => {
+			expect(attrs.size).toBe(DEFAULT_CONFIG.nodeSize);
+		});
+		element.graph!.forEachEdge((_edge, attrs) => {
+			expect(attrs.size).toBe(DEFAULT_CONFIG.edgeSize);
+		});
+
+		element.remove();
 	});
 });

@@ -2,9 +2,12 @@
 	"name": "alice",
 	"type": "module",
 	"scripts": {
-		"build": "astro build"
+		"build": "astro build",
+		"dev": "astro dev",
+		"preview": "astro preview"
 	},
 	"dependencies": {
-		"astro": "^5"
+		"astro": "^5",
+		"graphgarden-web": "file:../../packages/graphgarden-web"
 	}
 }
