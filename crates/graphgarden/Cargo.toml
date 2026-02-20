@@ -1,6 +1,6 @@
 [package]
 name = "graphgarden"
-version = "0.1.0"
+version = "0.0.1"
 description = "CLI for GraphGarden — crawl a site and generate its protocol file"
 edition.workspace = true
 license.workspace = true

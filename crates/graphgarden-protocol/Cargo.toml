@@ -1,6 +1,6 @@
 [package]
 name = "graphgarden-protocol"
-version = "0.1.0"
+version = "0.0.1"
 description = "Specification for the GraphGarden protocol — public file format and caching requirements"
 edition.workspace = true
 license.workspace = true

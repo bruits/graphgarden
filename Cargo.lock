@@ -328,7 +328,7 @@ dependencies = [
 
 [[package]]
 name = "graphgarden"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -341,7 +341,7 @@ dependencies = [
 
 [[package]]
 name = "graphgarden-core"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "globset",
  "graphgarden-protocol",
@@ -358,7 +358,7 @@ dependencies = [
 
 [[package]]
 name = "graphgarden-protocol"
-version = "0.1.0"
+version = "0.0.1"
 
 [[package]]
 name = "hashbrown"

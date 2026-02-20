@@ -40,6 +40,18 @@ We're also committed to fostering a welcoming and respectful community. Any issu
 - We deeply value idiomatic, easy-to-maintain Rust code. Avoid code duplication when possible. And prefer clarity over cleverness, and small focused functions over dark magic.
 - Explicit `use` imports for standard library types (e.g. `use std::collections::HashMap;`).
 
+## Writing Changesets
+
+Each feature or bug fix that changes the public API or user-facing behavior should be accompanied by a [Sampo](https://github.com/bruits/sampo) changeset.
+
+**Structure:**
+1. **Breaking prefix (if applicable):** `**⚠️ breaking change:**`
+2. **Verb:** `Added`, `Removed`, `Fixed`, `Changed`, `Deprecated`, or `Improved`.
+3. **Description**.
+4. **Usage example (optional):** A minimal snippet if it clarifies the change.
+
+**Description guidelines:** concise (1-2 sentences), specific (mention the command/option/API), actionable (what changed, not why), user-facing (written for changelog readers), and in English. Don't detail internal implementation changes.
+
 ## Getting Started
 
 GraphGarden is a polyglot monorepo. The Rust side uses [Cargo workspaces](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) (`crates/`), and the TypeScript side uses [pnpm workspaces](https://pnpm.io/workspaces) (`packages/`). Prerequisites: the latest stable [Rust](https://www.rust-lang.org/) toolchain, plus [Node.js](https://nodejs.org/) and [pnpm](https://pnpm.io/) for the web component and e2e tests.
