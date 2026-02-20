@@ -80,15 +80,79 @@ export function buildGraph(file: GraphGardenFile): Graph {
 	});
 
 	for (const node of file.nodes) {
-		graph.mergeNode(node.url, { title: node.title });
+		const absoluteUrl = new URL(node.url, file.base_url).href;
+		graph.mergeNode(absoluteUrl, { title: node.title });
 	}
 
 	// Friend-edge targets are external URLs not present in the nodes
 	// array; mergeNode ensures they exist before the edge is added.
 	for (const edge of file.edges) {
-		graph.mergeNode(edge.source);
-		graph.mergeNode(edge.target);
-		graph.mergeDirectedEdge(edge.source, edge.target, { type: edge.type });
+		const absoluteSource = new URL(edge.source, file.base_url).href;
+		const absoluteTarget = new URL(edge.target, file.base_url).href;
+		graph.mergeNode(absoluteSource);
+		graph.mergeNode(absoluteTarget);
+		graph.mergeDirectedEdge(absoluteSource, absoluteTarget, { type: edge.type });
+	}
+
+	return graph;
+}
+
+/** Fetch friend sites' graphs and merge their nodes and edges into `graph`. */
+export async function fetchFriendGraphs(graph: Graph): Promise<Graph> {
+	const origins = new Set<string>();
+	graph.forEachEdge((_edge, attributes, _source, target) => {
+		if (attributes.type === "friend") {
+			try {
+				origins.add(new URL(target).origin);
+			} catch {
+				console.warn(`fetchFriendGraphs: invalid friend target URL: ${target}`);
+			}
+		}
+	});
+
+	const results = await Promise.allSettled(
+		[...origins].map(async (origin) => {
+			const response = await fetch(`${origin}${WELL_KNOWN_PATH}`);
+			if (!response.ok) {
+				console.warn(
+					`fetchFriendGraphs: ${origin} responded ${response.status} ${response.statusText}`,
+				);
+				return null;
+			}
+			const data: unknown = await response.json();
+			if (!isGraphGardenFile(data)) {
+				console.warn(`fetchFriendGraphs: ${origin} returned an invalid GraphGarden file`);
+				return null;
+			}
+			return data;
+		}),
+	);
+
+	for (const result of results) {
+		if (result.status === "rejected") {
+			console.warn("fetchFriendGraphs: fetch failed:", result.reason);
+			continue;
+		}
+		const friendFile = result.value;
+		if (!friendFile) continue;
+
+		try {
+			for (const node of friendFile.nodes) {
+				const absoluteUrl = new URL(node.url, friendFile.base_url).href;
+				graph.mergeNode(absoluteUrl, { title: node.title });
+			}
+
+			for (const edge of friendFile.edges) {
+				const absoluteSource = new URL(edge.source, friendFile.base_url).href;
+				const absoluteTarget = new URL(edge.target, friendFile.base_url).href;
+				graph.mergeDirectedEdge(absoluteSource, absoluteTarget, { type: edge.type });
+			}
+		} catch (error) {
+			console.warn(
+				`fetchFriendGraphs: failed to merge friend file (base_url: ${friendFile.base_url}):`,
+				error,
+			);
+		}
 	}
 
 	return graph;
@@ -121,6 +185,7 @@ export class GraphGarden extends HTMLElement {
 			}
 
 			this.graph = buildGraph(data);
+			await fetchFriendGraphs(this.graph);
 		} catch (error) {
 			console.error("<graph-garden> error during initialization:", error);
 		}

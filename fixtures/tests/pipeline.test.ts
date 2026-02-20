@@ -3,7 +3,12 @@ import { createServer } from "node:http";
 import { readFileSync, rmSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, test, expect, beforeAll, afterAll } from "vitest";
-import { isGraphGardenFile, buildGraph, type GraphGardenFile } from "graphgarden-web";
+import {
+	isGraphGardenFile,
+	buildGraph,
+	fetchFriendGraphs,
+	type GraphGardenFile,
+} from "graphgarden-web";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const ALICE_DIR = resolve(ROOT, "alice");
@@ -222,6 +227,33 @@ describe("bob mock server", () => {
 		const res = await fetch(`${bobUrl}/other`);
 		expect(res.status).toBe(404);
 	});
+
+	test("fetchFriendGraphs merges Bob's nodes into a local graph", async () => {
+		const localFile: GraphGardenFile = {
+			version: "0.1.0",
+			generated_at: "2025-01-01T00:00:00Z",
+			base_url: "https://local.test/",
+			site: { title: "Local" },
+			nodes: [{ url: "/", title: "Home" }],
+			edges: [{ source: "/", target: `${bobUrl}/`, type: "friend" }],
+		};
+		const graph = buildGraph(localFile);
+
+		await fetchFriendGraphs(graph);
+
+		for (const node of bobGraph.nodes) {
+			const absoluteUrl = new URL(node.url, bobGraph.base_url).href;
+			expect(graph.hasNode(absoluteUrl)).toBe(true);
+			expect(graph.getNodeAttribute(absoluteUrl, "title")).toBe(node.title);
+		}
+
+		const bobInternal = bobGraph.edges.filter((e) => e.type === "internal");
+		for (const edge of bobInternal) {
+			const source = new URL(edge.source, bobGraph.base_url).href;
+			const target = new URL(edge.target, bobGraph.base_url).href;
+			expect(graph.hasDirectedEdge(source, target)).toBe(true);
+		}
+	});
 });
 
 describe("web component compatibility", () => {
@@ -237,13 +269,16 @@ describe("web component compatibility", () => {
 		const graph = buildGraph(file);
 
 		for (const node of file.nodes) {
-			expect(graph.hasNode(node.url)).toBe(true);
-			expect(graph.getNodeAttribute(node.url, "title")).toBe(node.title);
+			const absoluteUrl = new URL(node.url, file.base_url).href;
+			expect(graph.hasNode(absoluteUrl)).toBe(true);
+			expect(graph.getNodeAttribute(absoluteUrl, "title")).toBe(node.title);
 		}
 
 		expect(graph.size).toBe(file.edges.length);
 		for (const edge of file.edges) {
-			expect(graph.hasDirectedEdge(edge.source, edge.target)).toBe(true);
+			const absoluteSource = new URL(edge.source, file.base_url).href;
+			const absoluteTarget = new URL(edge.target, file.base_url).href;
+			expect(graph.hasDirectedEdge(absoluteSource, absoluteTarget)).toBe(true);
 		}
 
 		expect(graph.getAttribute("base_url")).toBe(file.base_url);
@@ -262,13 +297,16 @@ describe("web component compatibility", () => {
 		const graph = buildGraph(file);
 
 		for (const node of file.nodes) {
-			expect(graph.hasNode(node.url)).toBe(true);
-			expect(graph.getNodeAttribute(node.url, "title")).toBe(node.title);
+			const absoluteUrl = new URL(node.url, file.base_url).href;
+			expect(graph.hasNode(absoluteUrl)).toBe(true);
+			expect(graph.getNodeAttribute(absoluteUrl, "title")).toBe(node.title);
 		}
 
 		expect(graph.size).toBe(file.edges.length);
 		for (const edge of file.edges) {
-			expect(graph.hasDirectedEdge(edge.source, edge.target)).toBe(true);
+			const absoluteSource = new URL(edge.source, file.base_url).href;
+			const absoluteTarget = new URL(edge.target, file.base_url).href;
+			expect(graph.hasDirectedEdge(absoluteSource, absoluteTarget)).toBe(true);
 		}
 
 		expect(graph.getAttribute("base_url")).toBe(file.base_url);
