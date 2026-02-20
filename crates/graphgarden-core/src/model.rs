@@ -169,4 +169,46 @@ mod tests {
         assert_eq!(public_file.edges.len(), 3);
         assert_eq!(public_file.edges[2].edge_type, EdgeType::Friend);
     }
+
+    #[test]
+    fn from_json_rejects_malformed_json() {
+        let result = PublicFile::from_json("{not json");
+
+        assert!(result.is_err());
+        assert!(
+            matches!(result.unwrap_err(), Error::JsonDeserialize(_)),
+            "expected JsonDeserialize error"
+        );
+    }
+
+    #[test]
+    fn from_json_rejects_missing_required_fields() {
+        let result = PublicFile::from_json(r#"{"version":"0.1.0"}"#);
+
+        assert!(result.is_err());
+        assert!(
+            matches!(result.unwrap_err(), Error::JsonDeserialize(_)),
+            "expected JsonDeserialize error for missing fields"
+        );
+    }
+
+    #[test]
+    fn from_json_rejects_wrong_field_types() {
+        let json = r#"{
+            "version": "0.1.0",
+            "generated_at": "2026-02-17T12:00:00Z",
+            "base_url": "https://alice.dev/",
+            "site": { "title": "Test" },
+            "nodes": "not_an_array",
+            "edges": []
+        }"#;
+
+        let result = PublicFile::from_json(json);
+
+        assert!(result.is_err());
+        assert!(
+            matches!(result.unwrap_err(), Error::JsonDeserialize(_)),
+            "expected JsonDeserialize error for wrong field types"
+        );
+    }
 }

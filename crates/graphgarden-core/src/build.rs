@@ -264,4 +264,53 @@ mod tests {
     fn file_path_to_url_converts_named_page() {
         assert_eq!(file_path_to_url("posts/hello.html"), "/posts/hello");
     }
+
+    #[test]
+    fn build_empty_output_dir() {
+        let tmp = TempDir::new().unwrap();
+
+        let config = test_config(tmp.path().to_str().unwrap());
+        let result = build(&config).unwrap();
+
+        assert!(result.nodes.is_empty());
+        assert!(result.edges.is_empty());
+    }
+
+    #[test]
+    fn build_skips_non_html_files() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path();
+
+        write_file(dir, "style.css", "body { color: red; }");
+        write_file(dir, "script.js", "console.log('hi');");
+        write_file(dir, "image.png", "fake png data");
+        write_file(
+            dir,
+            "index.html",
+            "<html><head><title>Home</title></head><body></body></html>",
+        );
+
+        let config = test_config(dir.to_str().unwrap());
+        let result = build(&config).unwrap();
+
+        assert_eq!(result.nodes.len(), 1);
+        assert_eq!(result.nodes[0].url, "/");
+        assert_eq!(result.nodes[0].title, "Home");
+    }
+
+    #[test]
+    fn build_only_non_html_files() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path();
+
+        write_file(dir, "style.css", "body { color: red; }");
+        write_file(dir, "script.js", "console.log('hi');");
+        write_file(dir, "data.txt", "some text");
+
+        let config = test_config(dir.to_str().unwrap());
+        let result = build(&config).unwrap();
+
+        assert!(result.nodes.is_empty());
+        assert!(result.edges.is_empty());
+    }
 }

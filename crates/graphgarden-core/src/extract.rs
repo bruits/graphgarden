@@ -514,4 +514,24 @@ mod tests {
 
         assert!(edges.is_empty());
     }
+
+    #[test]
+    fn extract_rejects_invalid_css_selector() {
+        let html = "<html><body><a href=\"/about\">link</a></body></html>";
+        let selectors = vec![String::from("a]")];
+
+        let result = extract_page(html, "/", BASE_URL, &friends(), &selectors);
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, Error::HtmlParse(_)),
+            "expected HtmlParse error, got: {err:?}"
+        );
+        let msg = err.to_string();
+        assert!(
+            msg.contains("invalid CSS selector"),
+            "error message should mention invalid CSS selector, got: {msg}"
+        );
+    }
 }

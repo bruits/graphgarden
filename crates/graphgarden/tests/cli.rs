@@ -748,3 +748,137 @@ fn build_normalizes_links() {
         );
     }
 }
+
+#[test]
+fn build_rejects_base_url_without_trailing_slash() {
+    let tmp = TempDir::new().unwrap();
+    let output_dir = tmp.path().join("dist");
+    fs::create_dir_all(&output_dir).unwrap();
+
+    let config_path = tmp.path().join("graphgarden.toml");
+    fs::write(
+        &config_path,
+        minimal_config("https://test.dev", output_dir.to_str().unwrap()),
+    )
+    .unwrap();
+
+    cargo_bin_cmd!("graphgarden")
+        .args(["build", "--config", config_path.to_str().unwrap()])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("trailing slash"));
+}
+
+#[test]
+fn build_rejects_invalid_friend_url() {
+    let tmp = TempDir::new().unwrap();
+    let output_dir = tmp.path().join("dist");
+    fs::create_dir_all(&output_dir).unwrap();
+
+    let config_path = tmp.path().join("graphgarden.toml");
+    fs::write(
+        &config_path,
+        full_config(&ConfigOptions {
+            base_url: "https://test.dev/",
+            title: "Test Site",
+            output_dir: output_dir.to_str().unwrap(),
+            friends: &["not a url"],
+            ..DEFAULTS
+        }),
+    )
+    .unwrap();
+
+    cargo_bin_cmd!("graphgarden")
+        .args(["build", "--config", config_path.to_str().unwrap()])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("invalid friend URL"));
+}
+
+#[test]
+fn build_rejects_non_http_friend_url() {
+    let tmp = TempDir::new().unwrap();
+    let output_dir = tmp.path().join("dist");
+    fs::create_dir_all(&output_dir).unwrap();
+
+    let config_path = tmp.path().join("graphgarden.toml");
+    fs::write(
+        &config_path,
+        full_config(&ConfigOptions {
+            base_url: "https://test.dev/",
+            title: "Test Site",
+            output_dir: output_dir.to_str().unwrap(),
+            friends: &["ftp://bob.dev/"],
+            ..DEFAULTS
+        }),
+    )
+    .unwrap();
+
+    cargo_bin_cmd!("graphgarden")
+        .args(["build", "--config", config_path.to_str().unwrap()])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("scheme must be http or https"));
+}
+
+#[test]
+fn build_with_non_html_files_in_output() {
+    let tmp = TempDir::new().unwrap();
+    let output_dir = tmp.path().join("dist");
+    fs::create_dir_all(&output_dir).unwrap();
+
+    write_file(
+        &output_dir,
+        "index.html",
+        "<html><head><title>Home</title></head><body></body></html>",
+    );
+    write_file(&output_dir, "style.css", "body { color: red; }");
+    write_file(&output_dir, "app.js", "console.log('hi');");
+    write_file(&output_dir, "logo.png", "fake png data");
+
+    let config_path = tmp.path().join("graphgarden.toml");
+    fs::write(
+        &config_path,
+        minimal_config("https://test.dev/", output_dir.to_str().unwrap()),
+    )
+    .unwrap();
+
+    let value = run_build_and_read_output(&config_path, &output_dir);
+
+    let nodes = value["nodes"].as_array().unwrap();
+    assert_eq!(nodes.len(), 1);
+    assert_eq!(nodes[0]["url"], "/");
+    assert_eq!(nodes[0]["title"], "Home");
+}
+
+#[test]
+fn build_rejects_invalid_css_selector() {
+    let tmp = TempDir::new().unwrap();
+    let output_dir = tmp.path().join("dist");
+    fs::create_dir_all(&output_dir).unwrap();
+
+    write_file(
+        &output_dir,
+        "index.html",
+        "<html><head><title>Home</title></head><body><a href=\"/about\">link</a></body></html>",
+    );
+
+    let config_path = tmp.path().join("graphgarden.toml");
+    fs::write(
+        &config_path,
+        full_config(&ConfigOptions {
+            base_url: "https://test.dev/",
+            title: "Test Site",
+            output_dir: output_dir.to_str().unwrap(),
+            exclude_selectors: &["a]"],
+            ..DEFAULTS
+        }),
+    )
+    .unwrap();
+
+    cargo_bin_cmd!("graphgarden")
+        .args(["build", "--config", config_path.to_str().unwrap()])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("invalid CSS selector"));
+}
