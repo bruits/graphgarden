@@ -1,7 +1,7 @@
 import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
-import { EdgeLineProgram } from "sigma/rendering";
+import { EdgeRectangleProgram } from "sigma/rendering";
 
 const WELL_KNOWN_PATH = "/.well-known/graphgarden.json";
 
@@ -336,8 +336,8 @@ export class GraphGarden extends HTMLElement {
 		try {
 			this.renderer = new Sigma(this.graph, this.container, {
 				edgeProgramClasses: {
-					internal: EdgeLineProgram,
-					friend: EdgeLineProgram,
+					internal: EdgeRectangleProgram,
+					friend: EdgeRectangleProgram,
 				},
 				defaultEdgeColor: config.localEdgeColor,
 				labelColor: { color: config.labelColor },
