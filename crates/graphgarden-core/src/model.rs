@@ -41,6 +41,7 @@ pub struct PublicFile {
     pub generated_at: String,
     pub base_url: String,
     pub site: SiteMetadata,
+    pub friends: Vec<String>,
     pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
 }
@@ -69,6 +70,7 @@ mod tests {
                 description: Some(String::from("A blog about gardening")),
                 language: Some(String::from("en")),
             },
+            friends: vec![String::from("https://bob.dev/")],
             nodes: vec![
                 Node {
                     url: String::from("/"),
@@ -148,6 +150,7 @@ mod tests {
                 "description": "A blog about …",
                 "language": "en"
             },
+            "friends": ["https://bob.dev/"],
             "nodes": [
                 { "url": "/", "title": "Home" },
                 { "url": "/about", "title": "About" },
@@ -199,6 +202,7 @@ mod tests {
             "generated_at": "2026-02-17T12:00:00Z",
             "base_url": "https://alice.dev/",
             "site": { "title": "Test" },
+            "friends": [],
             "nodes": "not_an_array",
             "edges": []
         }"#;

@@ -7,6 +7,7 @@
 		"description": "Bob's your uncle for all things rabbits in England",
 		"language": "en"
 	},
+	"friends": ["https://alice.test/"],
 	"nodes": [
 		{ "url": "/", "title": "Home" },
 		{ "url": "/about/", "title": "About" },
