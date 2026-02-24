@@ -2,7 +2,7 @@
 
 Drop-in `<graph-garden>` custom element that renders an interactive node graph from a site's [`graphgarden.json`](../../crates/graphgarden-protocol/README.md) file.
 
-The component fetches the site's protocol file, merges friend graphs, computes a force-directed layout via ForceAtlas2, and renders an interactive visualisation with [Sigma.js](https://www.sigmajs.org/). Local nodes are shown in indigo, friend nodes in amber, with matching edge colours to distinguish internal links from cross-site friendships.
+The component fetches the site's protocol file, merges friend graphs, computes a force-directed layout via ForceAtlas2, and renders an interactive visualisation with [Sigma.js](https://www.sigmajs.org/). Local nodes are shown in indigo, friend nodes in amber; edge colours follow the same origin-based scheme — local-site edges appear in slate, while all edges from friend sites use amber.
 
 ## Usage
 
@@ -40,14 +40,15 @@ import "graphgarden-web";
 
 Override colors via CSS custom properties on the `<graph-garden>` element or any ancestor:
 
-| Property                   | Default   | Description                        |
-| -------------------------- | --------- | ---------------------------------- |
-| `--gg-local-node-color`    | `#6366f1` | Color of nodes from the local site |
-| `--gg-friend-node-color`   | `#f59e0b` | Color of nodes from friend sites   |
-| `--gg-internal-edge-color` | `#94a3b8` | Color of edges between local pages |
-| `--gg-friend-edge-color`   | `#fbbf24` | Color of edges to friend sites     |
-| `--gg-label-color`         | `#334155` | Color of node labels               |
+| Property                 | Default   | Description                        |
+| ------------------------ | --------- | ---------------------------------- |
+| `--gg-local-node-color`  | `#6366f1` | Color of nodes from the local site |
+| `--gg-friend-node-color` | `#f59e0b` | Color of nodes from friend sites   |
+| `--gg-local-edge-color`  | `#94a3b8` | Color of edges between local pages |
+| `--gg-friend-edge-color` | `#fbbf24` | Color of edges to friend sites     |
+| `--gg-label-color`       | `#334155` | Color of node labels               |
 
+> [!IMPORTANT]
 > Colors can be any format supported by Sigma.js: hex (`#rrggbb`, `#rgb`), `rgb()`, `rgba()`, or named CSS colors (e.g. `red`, `darkgreen`).
 
 #### Layout and sizing (HTML attributes)

@@ -158,6 +158,29 @@ describe("buildGraph", () => {
 		expect(graph.hasNode("https://friend.com/")).toBe(true);
 	});
 
+	test("internal edges get localEdgeColor", () => {
+		const file: GraphGardenFile = {
+			version: "0.1.0",
+			generated_at: "2025-01-01T00:00:00Z",
+			base_url: "https://example.com",
+			site: { title: "Test" },
+			nodes: [
+				{ url: "/a", title: "A" },
+				{ url: "/b", title: "B" },
+			],
+			edges: [{ source: "/a", target: "/b", type: "internal" }],
+		};
+		const graph = buildGraph(file, DEFAULT_CONFIG);
+		const edge = graph.edges()[0];
+		expect(graph.getEdgeAttribute(edge, "color")).toBe(DEFAULT_CONFIG.localEdgeColor);
+	});
+
+	test("friend edges get friendEdgeColor", () => {
+		const graph = buildGraph(validFile() as unknown as GraphGardenFile, DEFAULT_CONFIG);
+		const edge = graph.edges()[0];
+		expect(graph.getEdgeAttribute(edge, "color")).toBe(DEFAULT_CONFIG.friendEdgeColor);
+	});
+
 	test("empty file produces graph with zero nodes and edges but with attributes", () => {
 		const file: GraphGardenFile = {
 			version: "0.1.0",
@@ -370,6 +393,17 @@ describe("fetchFriendGraphs", () => {
 		expect(graph.getNodeAttribute("https://charlie.test/", "color")).toBe(
 			DEFAULT_CONFIG.friendNodeColor,
 		);
+	});
+
+	test("friend internal edges get friendEdgeColor, not localEdgeColor", async () => {
+		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
+		stubFetchWith({ json: () => Promise.resolve(friendFile()) });
+
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+
+		const friendEdge = graph.directedEdge("https://friend.test/", "https://friend.test/blog/");
+		expect(friendEdge).toBeDefined();
+		expect(graph.getEdgeAttribute(friendEdge!, "color")).toBe(DEFAULT_CONFIG.friendEdgeColor);
 	});
 
 	test("graph with no friend edges skips fetching", async () => {

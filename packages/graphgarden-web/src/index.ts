@@ -8,7 +8,7 @@ const WELL_KNOWN_PATH = "/.well-known/graphgarden.json";
 export interface GraphGardenConfig {
 	localNodeColor: string;
 	friendNodeColor: string;
-	internalEdgeColor: string;
+	localEdgeColor: string;
 	friendEdgeColor: string;
 	labelColor: string;
 	nodeSize: number;
@@ -20,7 +20,7 @@ export interface GraphGardenConfig {
 export const DEFAULT_CONFIG: GraphGardenConfig = {
 	localNodeColor: "#6366f1",
 	friendNodeColor: "#f59e0b",
-	internalEdgeColor: "#94a3b8",
+	localEdgeColor: "#94a3b8",
 	friendEdgeColor: "#fbbf24",
 	labelColor: "#334155",
 	nodeSize: 4,
@@ -127,7 +127,7 @@ export function buildGraph(file: GraphGardenFile, config: GraphGardenConfig): Gr
 			...(edge.type === "friend" && { color: config.friendNodeColor }),
 		});
 
-		const edgeColor = edge.type === "friend" ? config.friendEdgeColor : config.internalEdgeColor;
+		const edgeColor = edge.type === "friend" ? config.friendEdgeColor : config.localEdgeColor;
 		graph.mergeDirectedEdge(absoluteSource, absoluteTarget, {
 			type: edge.type,
 			color: edgeColor,
@@ -218,11 +218,9 @@ export async function fetchFriendGraphs(graph: Graph, config: GraphGardenConfig)
 					...(edge.type === "friend" && { color: config.friendNodeColor }),
 				});
 
-				const edgeColor =
-					edge.type === "friend" ? config.friendEdgeColor : config.internalEdgeColor;
 				graph.mergeDirectedEdge(absoluteSource, absoluteTarget, {
 					type: edge.type,
-					color: edgeColor,
+					color: config.friendEdgeColor,
 					size: config.edgeSize,
 				});
 			}
@@ -320,7 +318,7 @@ export class GraphGarden extends HTMLElement {
 		return {
 			localNodeColor: css("--gg-local-node-color", DEFAULT_CONFIG.localNodeColor),
 			friendNodeColor: css("--gg-friend-node-color", DEFAULT_CONFIG.friendNodeColor),
-			internalEdgeColor: css("--gg-internal-edge-color", DEFAULT_CONFIG.internalEdgeColor),
+			localEdgeColor: css("--gg-local-edge-color", DEFAULT_CONFIG.localEdgeColor),
 			friendEdgeColor: css("--gg-friend-edge-color", DEFAULT_CONFIG.friendEdgeColor),
 			labelColor: css("--gg-label-color", DEFAULT_CONFIG.labelColor),
 			nodeSize: attr("node-size", DEFAULT_CONFIG.nodeSize),
@@ -341,7 +339,7 @@ export class GraphGarden extends HTMLElement {
 					internal: EdgeLineProgram,
 					friend: EdgeLineProgram,
 				},
-				defaultEdgeColor: config.internalEdgeColor,
+				defaultEdgeColor: config.localEdgeColor,
 				labelColor: { color: config.labelColor },
 				labelSize: config.labelSize,
 				renderEdgeLabels: false,
