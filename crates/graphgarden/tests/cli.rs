@@ -147,6 +147,9 @@ fn build_happy_path() {
     assert_eq!(value["base_url"], "https://test.dev/");
     assert_eq!(value["site"]["title"], "Test Site");
     assert!(!value["nodes"].as_array().unwrap().is_empty());
+
+    let friends = value["friends"].as_array().unwrap();
+    assert!(friends.is_empty());
 }
 
 #[test]
@@ -297,6 +300,10 @@ fn build_friend_links() {
         }),
         "external non-friend links should be dropped"
     );
+
+    let friends = value["friends"].as_array().unwrap();
+    assert_eq!(friends.len(), 1);
+    assert_eq!(friends[0], "https://bob.dev/");
 
     assert!(
         edges
@@ -523,6 +530,10 @@ fn build_full_config() {
             .iter()
             .any(|e| e["source"] == "/about/" && e["target"] == "/" && e["type"] == "internal")
     );
+
+    let friends = value["friends"].as_array().unwrap();
+    assert_eq!(friends.len(), 1);
+    assert_eq!(friends[0], "https://bob.dev/");
 }
 
 #[test]
@@ -627,6 +638,15 @@ fn build_protocol_invariants() {
         );
         assert!(edge_pairs.insert(pair), "duplicate edge found: {:?}", pair);
     }
+
+    let friends = value["friends"].as_array().unwrap();
+    for friend in friends {
+        let url = friend.as_str().unwrap();
+        assert!(
+            url.starts_with("http://") || url.starts_with("https://"),
+            "friend URL should be absolute HTTP(S), got: {url}"
+        );
+    }
 }
 
 /// Validates that a string matches the `YYYY-MM-DDTHH:MM:SSZ` pattern.
@@ -677,6 +697,9 @@ fn build_empty_site() {
     assert!(value["generated_at"].as_str().is_some());
     assert_eq!(value["base_url"], "https://test.dev/");
     assert_eq!(value["site"]["title"], "Test Site");
+
+    let friends = value["friends"].as_array().unwrap();
+    assert!(friends.is_empty());
 }
 
 #[test]

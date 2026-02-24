@@ -18,6 +18,7 @@ function validFile(): Record<string, unknown> {
 		generated_at: "2025-01-01T00:00:00Z",
 		base_url: "https://example.com",
 		site: { title: "Test Site" },
+		friends: ["https://friend.com"],
 		nodes: [{ url: "/page", title: "Page" }],
 		edges: [{ source: "/page", target: "https://friend.com", type: "friend" }],
 	};
@@ -122,6 +123,24 @@ describe("isGraphGardenFile", () => {
 		file.site = { title: "Test", language: true };
 		expect(isGraphGardenFile(file)).toBe(false);
 	});
+
+	test("missing friends returns false", () => {
+		const file = validFile();
+		delete file.friends;
+		expect(isGraphGardenFile(file)).toBe(false);
+	});
+
+	test("friends with non-string entry returns false", () => {
+		const file = validFile();
+		file.friends = ["https://valid.com", 42];
+		expect(isGraphGardenFile(file)).toBe(false);
+	});
+
+	test("empty friends array returns true", () => {
+		const file = validFile();
+		file.friends = [];
+		expect(isGraphGardenFile(file)).toBe(true);
+	});
 });
 
 describe("buildGraph", () => {
@@ -164,6 +183,7 @@ describe("buildGraph", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://example.com",
 			site: { title: "Test" },
+			friends: [],
 			nodes: [
 				{ url: "/a", title: "A" },
 				{ url: "/b", title: "B" },
@@ -187,6 +207,7 @@ describe("buildGraph", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://empty.com",
 			site: { title: "Empty" },
+			friends: [],
 			nodes: [],
 			edges: [],
 		};
@@ -231,6 +252,7 @@ describe("fetchFriendGraphs", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://local.test/",
 			site: { title: "Local" },
+			friends: [friendTarget],
 			nodes: [{ url: "/", title: "Home" }],
 			edges: [{ source: "/", target: friendTarget, type: "friend" }],
 		};
@@ -242,6 +264,7 @@ describe("fetchFriendGraphs", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://friend.test/",
 			site: { title: "Friend Site" },
+			friends: [],
 			nodes: [
 				{ url: "/", title: "Friend Home" },
 				{ url: "/blog/", title: "Friend Blog" },
@@ -262,10 +285,11 @@ describe("fetchFriendGraphs", () => {
 	}
 
 	test("merges friend nodes with absolute URL keys", async () => {
-		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
+		const file = localFileWithFriend();
+		const graph = buildGraph(file, DEFAULT_CONFIG);
 		stubFetchWith({ json: () => Promise.resolve(friendFile()) });
 
-		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, file.friends);
 
 		expect(graph.hasNode("https://friend.test/")).toBe(true);
 		expect(graph.getNodeAttribute("https://friend.test/", "title")).toBe("Friend Home");
@@ -274,10 +298,11 @@ describe("fetchFriendGraphs", () => {
 	});
 
 	test("merges friend edges with resolved URLs", async () => {
-		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
+		const file = localFileWithFriend();
+		const graph = buildGraph(file, DEFAULT_CONFIG);
 		stubFetchWith({ json: () => Promise.resolve(friendFile()) });
 
-		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, file.friends);
 
 		expect(graph.hasDirectedEdge("https://friend.test/", "https://friend.test/blog/")).toBe(true);
 	});
@@ -288,6 +313,7 @@ describe("fetchFriendGraphs", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://local.test/",
 			site: { title: "Local" },
+			friends: ["https://friend.test/"],
 			nodes: [
 				{ url: "/", title: "Home" },
 				{ url: "/about/", title: "About" },
@@ -300,79 +326,86 @@ describe("fetchFriendGraphs", () => {
 		const graph = buildGraph(file, DEFAULT_CONFIG);
 		stubFetchWith({ json: () => Promise.resolve(friendFile()) });
 
-		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, file.friends);
 
 		expect(fetch).toHaveBeenCalledTimes(1);
 		expect(fetch).toHaveBeenCalledWith("https://friend.test/.well-known/graphgarden.json");
 	});
 
 	test("handles fetch rejection gracefully", async () => {
-		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
+		const file = localFileWithFriend();
+		const graph = buildGraph(file, DEFAULT_CONFIG);
 		const initialOrder = graph.order;
 		const initialSize = graph.size;
 
 		vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network error")));
 		vi.spyOn(console, "warn").mockImplementation(() => {});
 
-		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, file.friends);
 
 		expect(graph.order).toBe(initialOrder);
 		expect(graph.size).toBe(initialSize);
 	});
 
 	test("handles non-OK response gracefully", async () => {
-		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
+		const file = localFileWithFriend();
+		const graph = buildGraph(file, DEFAULT_CONFIG);
 		const initialOrder = graph.order;
 
 		stubFetchWith({ ok: false, status: 404, statusText: "Not Found" } as Partial<Response>);
 		vi.spyOn(console, "warn").mockImplementation(() => {});
 
-		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, file.friends);
 
 		expect(graph.order).toBe(initialOrder);
 	});
 
 	test("handles invalid response shape gracefully", async () => {
-		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
+		const file = localFileWithFriend();
+		const graph = buildGraph(file, DEFAULT_CONFIG);
 		const initialOrder = graph.order;
 
 		stubFetchWith({ json: () => Promise.resolve({ invalid: true }) });
 		vi.spyOn(console, "warn").mockImplementation(() => {});
 
-		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, file.friends);
 
 		expect(graph.order).toBe(initialOrder);
 	});
 
 	test("resolves relative paths against friend base_url", async () => {
-		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
+		const localFile = localFileWithFriend();
+		const graph = buildGraph(localFile, DEFAULT_CONFIG);
 		const file: GraphGardenFile = {
 			version: "0.1.0",
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://friend.test/",
 			site: { title: "Friend" },
+			friends: [],
 			nodes: [{ url: "/deep/path/", title: "Deep Page" }],
 			edges: [],
 		};
 		stubFetchWith({ json: () => Promise.resolve(file) });
 
-		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, localFile.friends);
 
 		expect(graph.hasNode("https://friend.test/deep/path/")).toBe(true);
 		expect(graph.getNodeAttribute("https://friend.test/deep/path/", "title")).toBe("Deep Page");
 	});
 
 	test("returns the mutated graph", async () => {
-		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
+		const file = localFileWithFriend();
+		const graph = buildGraph(file, DEFAULT_CONFIG);
 		stubFetchWith({ json: () => Promise.resolve(friendFile()) });
 
-		const result = await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+		const result = await fetchFriendGraphs(graph, DEFAULT_CONFIG, file.friends);
 
 		expect(result).toBe(graph);
 	});
 
 	test("friend-of-friend nodes get correct size and color", async () => {
-		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
+		const localFile = localFileWithFriend();
+		const graph = buildGraph(localFile, DEFAULT_CONFIG);
 
 		// Friend file with a friend edge to an unknown third-party URL
 		const file: GraphGardenFile = {
@@ -380,12 +413,13 @@ describe("fetchFriendGraphs", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://friend.test/",
 			site: { title: "Friend" },
+			friends: [],
 			nodes: [{ url: "/", title: "Friend Home" }],
 			edges: [{ source: "/", target: "https://charlie.test/", type: "friend" }],
 		};
 		stubFetchWith({ json: () => Promise.resolve(file) });
 
-		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, localFile.friends);
 
 		// Charlie was implicitly created by the friend edge
 		expect(graph.hasNode("https://charlie.test/")).toBe(true);
@@ -396,10 +430,11 @@ describe("fetchFriendGraphs", () => {
 	});
 
 	test("friend internal edges get friendEdgeColor, not localEdgeColor", async () => {
-		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
+		const file = localFileWithFriend();
+		const graph = buildGraph(file, DEFAULT_CONFIG);
 		stubFetchWith({ json: () => Promise.resolve(friendFile()) });
 
-		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, file.friends);
 
 		const friendEdge = graph.directedEdge("https://friend.test/", "https://friend.test/blog/");
 		expect(friendEdge).toBeDefined();
@@ -413,6 +448,7 @@ describe("fetchFriendGraphs", () => {
 				generated_at: "2025-01-01T00:00:00Z",
 				base_url: "https://local.test/",
 				site: { title: "Local" },
+				friends: [],
 				nodes: [
 					{ url: "/", title: "Home" },
 					{ url: "/about/", title: "About" },
@@ -425,13 +461,14 @@ describe("fetchFriendGraphs", () => {
 		const mockFetch = vi.fn();
 		vi.stubGlobal("fetch", mockFetch);
 
-		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, []);
 
 		expect(mockFetch).not.toHaveBeenCalled();
 	});
 
 	test("deduplicates nodes when friend edges point back to local site", async () => {
-		const graph = buildGraph(localFileWithFriend(), DEFAULT_CONFIG);
+		const localFile = localFileWithFriend();
+		const graph = buildGraph(localFile, DEFAULT_CONFIG);
 
 		// Friend file with an edge pointing back to the local site
 		const file: GraphGardenFile = {
@@ -439,12 +476,13 @@ describe("fetchFriendGraphs", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://friend.test/",
 			site: { title: "Friend" },
+			friends: [],
 			nodes: [{ url: "/", title: "Friend Home" }],
 			edges: [{ source: "/", target: "https://local.test/", type: "friend" }],
 		};
 		stubFetchWith({ json: () => Promise.resolve(file) });
 
-		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, localFile.friends);
 
 		// Local "/" was resolved to "https://local.test/" by buildGraph;
 		// the friend edge target is the same URL, so no duplicate is created.
@@ -459,6 +497,7 @@ describe("fetchFriendGraphs", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://local.test/",
 			site: { title: "Local" },
+			friends: ["https://bad.test/", "https://good.test/"],
 			nodes: [{ url: "/", title: "Home" }],
 			edges: [
 				{ source: "/", target: "https://bad.test/", type: "friend" },
@@ -472,6 +511,7 @@ describe("fetchFriendGraphs", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "",
 			site: { title: "Bad" },
+			friends: [],
 			nodes: [{ url: "/page", title: "Page" }],
 			edges: [],
 		};
@@ -480,6 +520,7 @@ describe("fetchFriendGraphs", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://good.test/",
 			site: { title: "Good" },
+			friends: [],
 			nodes: [{ url: "/", title: "Good Home" }],
 			edges: [],
 		};
@@ -501,11 +542,32 @@ describe("fetchFriendGraphs", () => {
 		);
 		vi.spyOn(console, "warn").mockImplementation(() => {});
 
-		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, localFile.friends);
 
 		expect(graph.hasNode("https://good.test/")).toBe(true);
 		expect(graph.getNodeAttribute("https://good.test/", "title")).toBe("Good Home");
 		expect(console.warn).toHaveBeenCalled();
+	});
+
+	test("fetches declared friend with no edges pointing to it", async () => {
+		const file: GraphGardenFile = {
+			version: "0.1.0",
+			generated_at: "2025-01-01T00:00:00Z",
+			base_url: "https://local.test/",
+			site: { title: "Local" },
+			friends: ["https://friend.test/"],
+			nodes: [{ url: "/", title: "Home" }],
+			edges: [],
+		};
+		const graph = buildGraph(file, DEFAULT_CONFIG);
+		stubFetchWith({ json: () => Promise.resolve(friendFile()) });
+
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, file.friends);
+
+		expect(fetch).toHaveBeenCalledTimes(1);
+		expect(fetch).toHaveBeenCalledWith("https://friend.test/.well-known/graphgarden.json");
+		expect(graph.hasNode("https://friend.test/")).toBe(true);
+		expect(graph.getNodeAttribute("https://friend.test/", "title")).toBe("Friend Home");
 	});
 });
 
@@ -516,6 +578,7 @@ describe("assignLayout", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://example.com",
 			site: { title: "Test" },
+			friends: [],
 			nodes: [
 				{ url: "/a", title: "A" },
 				{ url: "/b", title: "B" },
@@ -549,6 +612,7 @@ describe("assignLayout", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://example.com",
 			site: { title: "Test" },
+			friends: [],
 			nodes: [{ url: "/", title: "Home" }],
 			edges: [],
 		};
@@ -566,6 +630,7 @@ describe("assignLayout", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://example.com",
 			site: { title: "Test" },
+			friends: [],
 			nodes: [
 				{ url: "/a", title: "A" },
 				{ url: "/b", title: "B" },
@@ -718,6 +783,7 @@ describe("customization", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://example.com",
 			site: { title: "Test" },
+			friends: [],
 			nodes: [
 				{ url: "/a", title: "A" },
 				{ url: "/b", title: "B" },

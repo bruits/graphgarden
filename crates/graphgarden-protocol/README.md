@@ -23,6 +23,7 @@ Served at `BASE_URL/.well-known/graphgarden.json`.
     "description": "A blog about …",  // optional
     "language": "en"                   // optional, BCP 47
   },
+  "friends": ["https://bob.dev/"],
   "nodes": [
     { "url": "/", "title": "Home" },
     { "url": "/about", "title": "About" },
@@ -40,6 +41,7 @@ Served at `BASE_URL/.well-known/graphgarden.json`.
 - **`edges[].source`** — relative path (must match a node).
 - **`edges[].target`** — relative path for `internal`, absolute URL for `friend`.
 - **`edges[].type`** — `"internal"` (same site) or `"friend"` (site declared in config). Other external links are ignored during crawl.
+- **`friends`** — array of declared friend site base URLs. All listed origins are fetched unconditionally by the web component, regardless of whether any edges reference them.
 
 ## Caching
 

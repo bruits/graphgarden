@@ -74,6 +74,7 @@ pub fn build(config: &Config) -> Result<PublicFile> {
             description: config.site.description.clone(),
             language: config.site.language.clone(),
         },
+        friends: config.friends.clone(),
         nodes,
         edges,
     })
@@ -175,6 +176,7 @@ mod tests {
         assert_eq!(result.version, crate::model::PROTOCOL_VERSION);
         assert_eq!(result.base_url, "https://alice.dev/");
         assert_eq!(result.site.title, "Alice's Garden");
+        assert_eq!(result.friends, vec!["https://bob.dev/"]);
         assert_eq!(result.nodes.len(), 2);
         assert!(
             result

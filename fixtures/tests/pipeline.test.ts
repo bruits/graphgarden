@@ -137,6 +137,10 @@ describe("build pipeline", () => {
 		}
 	});
 
+	test("friends lists Bob as a friend", () => {
+		expect(aliceGraph.friends).toEqual(["https://bob.test/"]);
+	});
+
 	test("Alice's friend edges target URLs that exist in Bob's graph", () => {
 		const bobGraph: GraphGardenFile = JSON.parse(readFileSync(BOB_JSON_PATH, "utf-8"));
 
@@ -239,12 +243,13 @@ describe("bob mock server", () => {
 			generated_at: "2025-01-01T00:00:00Z",
 			base_url: "https://local.test/",
 			site: { title: "Local" },
+			friends: [`${bobUrl}/`],
 			nodes: [{ url: "/", title: "Home" }],
 			edges: [{ source: "/", target: `${bobUrl}/`, type: "friend" }],
 		};
 		const graph = buildGraph(localFile, DEFAULT_CONFIG);
 
-		await fetchFriendGraphs(graph, DEFAULT_CONFIG);
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, localFile.friends);
 
 		for (const node of bobGraph.nodes) {
 			const absoluteUrl = new URL(node.url, bobGraph.base_url).href;
