@@ -8,6 +8,7 @@ const WELL_KNOWN_PATH = "/.well-known/graphgarden.json";
 export interface GraphGardenConfig {
 	localNodeColor: string;
 	friendNodeColor: string;
+	frontierNodeColor: string;
 	localEdgeColor: string;
 	friendEdgeColor: string;
 	labelColor: string;
@@ -20,6 +21,7 @@ export interface GraphGardenConfig {
 export const DEFAULT_CONFIG: GraphGardenConfig = {
 	localNodeColor: "#6366f1",
 	friendNodeColor: "#f59e0b",
+	frontierNodeColor: "#9ca3af",
 	localEdgeColor: "#94a3b8",
 	friendEdgeColor: "#fbbf24",
 	labelColor: "#334155",
@@ -110,8 +112,10 @@ export function buildGraph(file: GraphGardenFile, config: GraphGardenConfig): Gr
 		site: file.site,
 	});
 
+	const declaredNodes = new Set<string>();
 	for (const node of file.nodes) {
 		const absoluteUrl = new URL(node.url, file.base_url).href;
+		declaredNodes.add(absoluteUrl);
 		graph.mergeNode(absoluteUrl, {
 			title: node.title,
 			label: node.title,
@@ -120,15 +124,17 @@ export function buildGraph(file: GraphGardenFile, config: GraphGardenConfig): Gr
 		});
 	}
 
-	// Friend-edge targets are external URLs not present in the nodes
-	// array; mergeNode ensures they exist before the edge is added.
+	// Edge targets not present in the declared nodes set are frontier
+	// nodes: broken internal links or not-yet-fetched friend sites.
 	for (const edge of file.edges) {
 		const absoluteSource = new URL(edge.source, file.base_url).href;
 		const absoluteTarget = new URL(edge.target, file.base_url).href;
 		graph.mergeNode(absoluteSource, { size: config.nodeSize });
+
+		const targetColor = declaredNodes.has(absoluteTarget) ? undefined : config.frontierNodeColor;
 		graph.mergeNode(absoluteTarget, {
 			size: config.nodeSize,
-			...(edge.type === "friend" && { color: config.friendNodeColor }),
+			...(targetColor !== undefined && { color: targetColor }),
 		});
 
 		const edgeColor = edge.type === "friend" ? config.friendEdgeColor : config.localEdgeColor;
@@ -324,6 +330,7 @@ export class GraphGarden extends HTMLElement {
 		return {
 			localNodeColor: css("--gg-local-node-color", DEFAULT_CONFIG.localNodeColor),
 			friendNodeColor: css("--gg-friend-node-color", DEFAULT_CONFIG.friendNodeColor),
+			frontierNodeColor: css("--gg-frontier-node-color", DEFAULT_CONFIG.frontierNodeColor),
 			localEdgeColor: css("--gg-local-edge-color", DEFAULT_CONFIG.localEdgeColor),
 			friendEdgeColor: css("--gg-friend-edge-color", DEFAULT_CONFIG.friendEdgeColor),
 			labelColor: css("--gg-label-color", DEFAULT_CONFIG.labelColor),

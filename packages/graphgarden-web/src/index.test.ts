@@ -217,6 +217,48 @@ describe("buildGraph", () => {
 		expect(graph.getAttribute("base_url")).toBe("https://empty.com");
 		expect(graph.getAttribute("site")).toEqual({ title: "Empty" });
 	});
+
+	test("broken internal-edge target gets frontierNodeColor", () => {
+		const file: GraphGardenFile = {
+			version: "0.1.0",
+			generated_at: "2025-01-01T00:00:00Z",
+			base_url: "https://example.com",
+			site: { title: "Test" },
+			friends: [],
+			nodes: [{ url: "/a", title: "A" }],
+			edges: [{ source: "/a", target: "/missing", type: "internal" }],
+		};
+		const graph = buildGraph(file, DEFAULT_CONFIG);
+		expect(graph.getNodeAttribute("https://example.com/missing", "color")).toBe(
+			DEFAULT_CONFIG.frontierNodeColor,
+		);
+	});
+
+	test("friend-edge target gets frontierNodeColor initially", () => {
+		const graph = buildGraph(validFile() as unknown as GraphGardenFile, DEFAULT_CONFIG);
+		expect(graph.getNodeAttribute("https://friend.com/", "color")).toBe(
+			DEFAULT_CONFIG.frontierNodeColor,
+		);
+	});
+
+	test("internal-edge target declared in nodes keeps localNodeColor", () => {
+		const file: GraphGardenFile = {
+			version: "0.1.0",
+			generated_at: "2025-01-01T00:00:00Z",
+			base_url: "https://example.com",
+			site: { title: "Test" },
+			friends: [],
+			nodes: [
+				{ url: "/a", title: "A" },
+				{ url: "/b", title: "B" },
+			],
+			edges: [{ source: "/a", target: "/b", type: "internal" }],
+		};
+		const graph = buildGraph(file, DEFAULT_CONFIG);
+		expect(graph.getNodeAttribute("https://example.com/b", "color")).toBe(
+			DEFAULT_CONFIG.localNodeColor,
+		);
+	});
 });
 
 describe("buildGraph with fixture data", () => {
@@ -549,6 +591,36 @@ describe("fetchFriendGraphs", () => {
 		expect(console.warn).toHaveBeenCalled();
 	});
 
+	test("upgrades frontier friend nodes to friendNodeColor after successful fetch", async () => {
+		const file = localFileWithFriend();
+		const graph = buildGraph(file, DEFAULT_CONFIG);
+
+		expect(graph.getNodeAttribute("https://friend.test/", "color")).toBe(
+			DEFAULT_CONFIG.frontierNodeColor,
+		);
+
+		stubFetchWith({ json: () => Promise.resolve(friendFile()) });
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, file.friends);
+
+		expect(graph.getNodeAttribute("https://friend.test/", "color")).toBe(
+			DEFAULT_CONFIG.friendNodeColor,
+		);
+	});
+
+	test("leaves frontierNodeColor on nodes when fetch fails", async () => {
+		const file = localFileWithFriend();
+		const graph = buildGraph(file, DEFAULT_CONFIG);
+
+		vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network error")));
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, file.friends);
+
+		expect(graph.getNodeAttribute("https://friend.test/", "color")).toBe(
+			DEFAULT_CONFIG.frontierNodeColor,
+		);
+	});
+
 	test("fetches declared friend with no edges pointing to it", async () => {
 		const file: GraphGardenFile = {
 			version: "0.1.0",
@@ -771,10 +843,14 @@ describe("customization", () => {
 		expect(graph.getEdgeAttribute(edge, "size")).toBe(2);
 	});
 
-	test("buildGraph applies friend color to friend edge targets", () => {
-		const config = { ...DEFAULT_CONFIG, friendNodeColor: "#00ff00" };
+	test("DEFAULT_CONFIG.frontierNodeColor has expected default value", () => {
+		expect(DEFAULT_CONFIG.frontierNodeColor).toBe("#9ca3af");
+	});
+
+	test("buildGraph applies custom frontierNodeColor to undeclared edge targets", () => {
+		const config = { ...DEFAULT_CONFIG, frontierNodeColor: "#aabbcc" };
 		const graph = buildGraph(validFile() as unknown as GraphGardenFile, config);
-		expect(graph.getNodeAttribute("https://friend.com/", "color")).toBe("#00ff00");
+		expect(graph.getNodeAttribute("https://friend.com/", "color")).toBe("#aabbcc");
 	});
 
 	test("assignLayout respects custom iterations", () => {
