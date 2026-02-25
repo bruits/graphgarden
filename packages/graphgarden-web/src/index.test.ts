@@ -124,10 +124,10 @@ describe("isGraphGardenFile", () => {
 		expect(isGraphGardenFile(file)).toBe(false);
 	});
 
-	test("missing friends returns false", () => {
+	test("missing friends is valid", () => {
 		const file = validFile();
 		delete file.friends;
-		expect(isGraphGardenFile(file)).toBe(false);
+		expect(isGraphGardenFile(file)).toBe(true);
 	});
 
 	test("friends with non-string entry returns false", () => {

@@ -54,7 +54,7 @@ export interface GraphGardenFile {
 	generated_at: string;
 	base_url: string;
 	site: GraphGardenSite;
-	friends: string[];
+	friends?: string[];
 	nodes: GraphGardenNode[];
 	edges: GraphGardenEdge[];
 }
@@ -94,7 +94,10 @@ export function isGraphGardenFile(value: unknown): value is GraphGardenFile {
 	if (site.description !== undefined && typeof site.description !== "string") return false;
 	if (site.language !== undefined && typeof site.language !== "string") return false;
 
-	if (!Array.isArray(obj.friends) || !obj.friends.every((f: unknown) => typeof f === "string"))
+	if (
+		obj.friends !== undefined &&
+		(!Array.isArray(obj.friends) || !obj.friends.every((f: unknown) => typeof f === "string"))
+	)
 		return false;
 
 	if (!Array.isArray(obj.nodes) || !obj.nodes.every(isNode)) return false;
@@ -173,7 +176,7 @@ export function assignLayout(graph: Graph, iterations: number): void {
 export async function fetchFriendGraphs(
 	graph: Graph,
 	config: GraphGardenConfig,
-	friends: string[],
+	friends: string[] | undefined = [],
 ): Promise<Graph> {
 	const origins = new Set<string>();
 	for (const friend of friends) {

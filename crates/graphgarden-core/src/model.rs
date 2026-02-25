@@ -41,6 +41,7 @@ pub struct PublicFile {
     pub generated_at: String,
     pub base_url: String,
     pub site: SiteMetadata,
+    #[serde(default)]
     pub friends: Vec<String>,
     pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
@@ -171,6 +172,32 @@ mod tests {
         assert_eq!(public_file.nodes.len(), 3);
         assert_eq!(public_file.edges.len(), 3);
         assert_eq!(public_file.edges[2].edge_type, EdgeType::Friend);
+    }
+
+    #[test]
+    fn public_file_without_friends_defaults_to_empty() {
+        let json = r#"{
+            "version": "0.1.0",
+            "generated_at": "2026-02-17T12:00:00Z",
+            "base_url": "https://alice.dev/",
+            "site": {
+                "title": "Alice's Garden",
+                "description": "A blog about …",
+                "language": "en"
+            },
+            "nodes": [
+                { "url": "/", "title": "Home" },
+                { "url": "/about", "title": "About" }
+            ],
+            "edges": [
+                { "source": "/", "target": "/about", "type": "internal" }
+            ]
+        }"#;
+
+        let public_file =
+            PublicFile::from_json(json).expect("0.1.0 file without friends should deserialize");
+
+        assert_eq!(public_file.friends, Vec::<String>::new());
     }
 
     #[test]
