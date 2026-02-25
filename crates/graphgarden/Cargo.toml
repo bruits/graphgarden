@@ -1,6 +1,6 @@
 [package]
 name = "graphgarden"
-version = "0.1.0"
+version = "0.2.0"
 description = "CLI for GraphGarden — crawl a site and generate its protocol file"
 edition.workspace = true
 license.workspace = true
@@ -11,7 +11,7 @@ name = "graphgarden"
 path = "src/main.rs"
 
 [dependencies]
-graphgarden-core = { path = "../graphgarden-core" , version = "0.1.0" }
+graphgarden-core = { path = "../graphgarden-core" , version = "0.2.0" }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 
