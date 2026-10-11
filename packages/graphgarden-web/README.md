@@ -2,7 +2,7 @@
 
 Drop-in `<graph-garden>` custom element that renders an interactive node graph from a site's [`graphgarden.json`](../../crates/graphgarden-protocol/README.md) file.
 
-The component fetches the site's protocol file, merges friend graphs, computes a force-directed layout via ForceAtlas2, and renders an interactive visualisation with [Sigma.js](https://www.sigmajs.org/). Local nodes are shown in indigo, friend nodes in amber, and frontier nodes (broken links or unreachable friends) in grey. Edge colours follow the same origin-based scheme.
+The component fetches the site's protocol file, merges friend graphs, computes a force-directed layout via ForceAtlas2, and renders an interactive visualisation with [Sigma.js](https://www.sigmajs.org/). Local nodes are shown in indigo, friend nodes in amber, and frontier nodes (broken links or unreachable friends) in grey. Edge colours follow the same origin-based scheme. Node and edge URLs that are not http or https are ignored, and a friend site that does not answer within 10 seconds is left out.
 
 ## Usage
 
@@ -34,6 +34,15 @@ import "graphgarden-web";
 <graph-garden style="width: 600px; height: 400px;"></graph-garden>
 ```
 
+### Waiting for the graph
+
+`ready` is a promise that resolves once the element has rendered its graph, given up, or been removed. `graph` stays `null` when loading failed.
+
+```js
+await customElements.whenDefined("graph-garden");
+await document.querySelector("graph-garden").ready;
+```
+
 ### Customization
 
 #### Colors (CSS custom properties)
@@ -54,12 +63,14 @@ Override colors via CSS custom properties on the `<graph-garden>` element or any
 
 #### Layout and sizing (HTML attributes)
 
-| Attribute    | Default | Description                             |
-| ------------ | ------- | --------------------------------------- |
-| `node-size`  | `4`     | Radius of graph nodes                   |
-| `edge-size`  | `0.5`   | Thickness of graph edges                |
-| `label-size` | `12`    | Font size of node labels                |
-| `iterations` | `200`   | Number of ForceAtlas2 layout iterations |
+| Attribute    | Default                       | Description                             |
+| ------------ | ----------------------------- | --------------------------------------- |
+| `node-size`  | `4`                           | Radius of graph nodes                   |
+| `edge-size`  | `0.5`                         | Thickness of graph edges                |
+| `label-size` | `12`                          | Font size of node labels                |
+| `iterations` | `200`, fewer above 1000 nodes | Number of ForceAtlas2 layout iterations |
+
+Missing, non-numeric or non-positive values fall back to the default.
 
 ```html
 <graph-garden node-size="6" label-size="14" iterations="500"></graph-garden>

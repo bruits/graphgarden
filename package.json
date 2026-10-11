@@ -1,16 +1,17 @@
 {
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "fmt": "oxfmt packages/ fixtures/",
-    "fmt:check": "oxfmt --check packages/ fixtures/",
-    "lint": "oxlint --deny-warnings packages/ fixtures/",
-    "build": "pnpm -C packages/graphgarden-web run build",
-    "test:e2e": "cd fixtures && pnpm test"
-  },
-  "devDependencies": {
-    "oxfmt": "^0.72",
-    "oxlint": "^1"
-  },
-  "packageManager": "pnpm@11.28.2"
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"fmt": "oxfmt packages/ fixtures/",
+		"fmt:check": "oxfmt --check packages/ fixtures/",
+		"lint": "oxlint --deny-warnings packages/ fixtures/",
+		"typecheck": "pnpm -C packages/graphgarden-web run typecheck",
+		"build": "pnpm -C packages/graphgarden-web run build",
+		"test:e2e": "pnpm -C fixtures test"
+	},
+	"devDependencies": {
+		"oxfmt": "^0.72",
+		"oxlint": "^1"
+	},
+	"packageManager": "pnpm@11.28.2"
 }

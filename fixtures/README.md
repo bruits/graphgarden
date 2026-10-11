@@ -9,7 +9,7 @@ End-to-end test fixtures and integration test suite for the [GraphGarden](https:
 
 ## Tests
 
-The test suite (`tests/pipeline.test.ts`) uses [Vitest](https://vitest.dev/) to run the full pipeline: install dependencies, build the Astro site, compile and run the CLI, then validate the generated JSON against the [protocol specification](https://github.com/bruits/graphgarden/blob/main/crates/graphgarden-protocol/README.md). It also spins up a mock server for Bob and verifies cross-site friend edges.
+The test suite (`tests/pipeline.test.ts`) uses [Vitest](https://vitest.dev/) to build the web component, Alice's Astro site and the CLI, then runs the CLI on Alice. It checks what only the whole pipeline shows. Alice's Astro pages become the expected graph, her file passes the web component's validator, friend edges resolve between Alice and Bob, and `<graph-garden>` renders both. The suite imports `graphgarden-web` from its TypeScript sources, while Alice's Astro build bundles the built package.
 
 Prerequisites: [Node.js](https://nodejs.org/), [pnpm](https://pnpm.io/), and [Rust](https://www.rust-lang.org/).
 

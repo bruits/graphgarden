@@ -1,13 +1,13 @@
-import { build } from "esbuild";
+import { build, type BuildOptions } from "esbuild";
 
 /** Shared options for all bundles */
-const shared = {
+const shared: BuildOptions = {
 	entryPoints: ["src/index.ts"],
 	bundle: true,
 	minify: true,
 	sourcemap: true,
 	target: "es2023",
-} as const;
+};
 
 await Promise.all([
 	// ESM — for `import` / `<script type="module">`

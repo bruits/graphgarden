@@ -8,7 +8,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^24",
-		"graphgarden-web": "file:../packages/graphgarden-web",
+		"graphgarden-web": "workspace:*",
 		"happy-dom": "^20",
 		"vitest": "^5"
 	}

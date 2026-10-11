@@ -4,15 +4,10 @@
 		"module": "ESNext",
 		"moduleResolution": "bundler",
 		"strict": true,
-		"declaration": true,
-		"declarationDir": "dist",
-		"emitDeclarationOnly": true,
-		"outDir": "dist",
-		"rootDir": "src",
+		"noEmit": true,
 		"isolatedModules": true,
 		"skipLibCheck": true,
 		"lib": ["ES2023", "DOM", "DOM.Iterable"]
 	},
-	"include": ["src/**/*.ts"],
-	"exclude": ["src/**/*.test.ts", "src/test-setup.ts"]
+	"include": ["src/**/*.ts", "build.ts", "vitest.config.ts"]
 }

@@ -1,5 +1,7 @@
 packages:
   - packages/*
+  - fixtures
+  - fixtures/alice
 
 allowBuilds:
   esbuild: true

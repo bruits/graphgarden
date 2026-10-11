@@ -1,5 +1,6 @@
 {
 	"name": "alice",
+	"private": true,
 	"type": "module",
 	"scripts": {
 		"build": "astro build",
@@ -8,6 +9,6 @@
 	},
 	"dependencies": {
 		"astro": "^7",
-		"graphgarden-web": "file:../../packages/graphgarden-web"
+		"graphgarden-web": "workspace:*"
 	}
 }

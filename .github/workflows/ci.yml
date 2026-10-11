@@ -154,6 +154,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Typecheck graphgarden-web
+        run: pnpm run typecheck
+
       - name: Build graphgarden-web
         run: pnpm run build
 
@@ -183,16 +186,9 @@ jobs:
         with:
           node-version: lts/*
           cache: pnpm
-          cache-dependency-path: |
-            pnpm-lock.yaml
-            fixtures/pnpm-lock.yaml
-            fixtures/alice/pnpm-lock.yaml
 
-      - name: Install workspace dependencies
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Install fixtures dependencies
-        run: cd fixtures && pnpm install --frozen-lockfile
 
       # Build ahead so a cold Rust cache stays out of the e2e hook timeout
       - name: Build CLI

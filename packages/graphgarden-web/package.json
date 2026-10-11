@@ -24,9 +24,10 @@
 		"./iife": "./dist/graphgarden.iife.js"
 	},
 	"scripts": {
-		"build": "rm -rf dist && tsx build.ts && tsc",
+		"build": "rm -rf dist && tsx build.ts && tsc -p tsconfig.build.json",
 		"prepack": "pnpm run build",
 		"dev": "tsx watch build.ts",
+		"typecheck": "tsc --noEmit",
 		"test": "vitest run",
 		"test:watch": "vitest"
 	},
@@ -36,6 +37,7 @@
 		"sigma": "^3"
 	},
 	"devDependencies": {
+		"@types/node": "^24",
 		"esbuild": "^0.28",
 		"happy-dom": "^20",
 		"tsx": "^4",
