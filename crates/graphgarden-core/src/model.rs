@@ -6,7 +6,9 @@ pub use graphgarden_protocol::PROTOCOL_VERSION;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Node {
+    /// Path of the page on the site, e.g. `/about/`.
     pub url: String,
+    /// Page title, or its URL when the page has none.
     pub title: String,
 }
 
@@ -19,7 +21,9 @@ pub enum EdgeType {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Edge {
+    /// Path of the linking page, always a [`Node`] URL.
     pub source: String,
+    /// Path of the linked page for `internal` edges, absolute URL for `friend` edges.
     pub target: String,
     #[serde(rename = "type")]
     pub edge_type: EdgeType,
@@ -30,6 +34,7 @@ pub struct SiteMetadata {
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// BCP 47 language tag, e.g. `en`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
 }
@@ -38,9 +43,12 @@ pub struct SiteMetadata {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PublicFile {
     pub version: String,
+    /// ISO 8601 UTC timestamp of generation.
     pub generated_at: String,
+    /// Site origin with a trailing slash, e.g. `https://alice.dev/`.
     pub base_url: String,
     pub site: SiteMetadata,
+    /// Declared friend origins, absent from files before protocol 0.2.0.
     #[serde(default)]
     pub friends: Vec<String>,
     pub nodes: Vec<Node>,
@@ -48,10 +56,20 @@ pub struct PublicFile {
 }
 
 impl PublicFile {
+    /// Serializes the file as pretty-printed JSON.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::JsonSerialize`] if serialization fails.
     pub fn to_json(&self) -> Result<String> {
         serde_json::to_string_pretty(self).map_err(Error::JsonSerialize)
     }
 
+    /// Parses a public file from JSON.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::JsonDeserialize`] if the input is not valid JSON for this schema.
     pub fn from_json(s: &str) -> Result<Self> {
         serde_json::from_str(s).map_err(Error::JsonDeserialize)
     }
@@ -61,83 +79,43 @@ impl PublicFile {
 mod tests {
     use super::*;
 
-    fn sample_public_file() -> PublicFile {
-        PublicFile {
-            version: String::from(PROTOCOL_VERSION),
+    #[test]
+    fn serializes_the_wire_format() {
+        let file = PublicFile {
+            version: String::from("0.2.0"),
             generated_at: String::from("2026-02-17T12:00:00Z"),
             base_url: String::from("https://alice.dev/"),
             site: SiteMetadata {
                 title: String::from("Alice's Garden"),
-                description: Some(String::from("A blog about gardening")),
-                language: Some(String::from("en")),
+                description: None,
+                language: None,
             },
             friends: vec![String::from("https://bob.dev/")],
-            nodes: vec![
-                Node {
-                    url: String::from("/"),
-                    title: String::from("Home"),
-                },
-                Node {
-                    url: String::from("/about"),
-                    title: String::from("About"),
-                },
-            ],
-            edges: vec![
-                Edge {
-                    source: String::from("/"),
-                    target: String::from("/about"),
-                    edge_type: EdgeType::Internal,
-                },
-                Edge {
-                    source: String::from("/about"),
-                    target: String::from("https://bob.dev/"),
-                    edge_type: EdgeType::Friend,
-                },
-            ],
-        }
-    }
-
-    #[test]
-    fn public_file_round_trip() {
-        let original = sample_public_file();
-        let json = original.to_json().expect("serialization should succeed");
-        let restored = PublicFile::from_json(&json).expect("deserialization should succeed");
-        assert_eq!(original, restored);
-    }
-
-    #[test]
-    fn edge_type_serialization() {
-        let internal_json =
-            serde_json::to_string(&EdgeType::Internal).expect("serialization should succeed");
-        assert_eq!(internal_json, r#""internal""#);
-
-        let friend_json =
-            serde_json::to_string(&EdgeType::Friend).expect("serialization should succeed");
-        assert_eq!(friend_json, r#""friend""#);
-    }
-
-    #[test]
-    fn edge_type_field_serializes_as_type() {
-        let edge = Edge {
-            source: String::from("/"),
-            target: String::from("/about"),
-            edge_type: EdgeType::Internal,
+            nodes: vec![Node {
+                url: String::from("/"),
+                title: String::from("Home"),
+            }],
+            edges: vec![Edge {
+                source: String::from("/"),
+                target: String::from("https://bob.dev/"),
+                edge_type: EdgeType::Friend,
+            }],
         };
-        let json = serde_json::to_string(&edge).expect("serialization should succeed");
-        assert!(json.contains(r#""type":"internal""#));
-        assert!(!json.contains("edge_type"));
-    }
 
-    #[test]
-    fn site_metadata_omits_none_fields() {
-        let metadata = SiteMetadata {
-            title: String::from("Test"),
-            description: None,
-            language: None,
-        };
-        let json = serde_json::to_string(&metadata).expect("serialization should succeed");
-        assert!(!json.contains("description"));
-        assert!(!json.contains("language"));
+        let json = file.to_json().unwrap();
+
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let expected = serde_json::json!({
+            "version": "0.2.0",
+            "generated_at": "2026-02-17T12:00:00Z",
+            "base_url": "https://alice.dev/",
+            "site": { "title": "Alice's Garden" },
+            "friends": ["https://bob.dev/"],
+            "nodes": [{ "url": "/", "title": "Home" }],
+            "edges": [{ "source": "/", "target": "https://bob.dev/", "type": "friend" }]
+        });
+        assert_eq!(value, expected);
+        assert_eq!(PublicFile::from_json(&json).unwrap(), file);
     }
 
     #[test]
@@ -167,10 +145,13 @@ mod tests {
         let public_file = PublicFile::from_json(json).expect("protocol example should deserialize");
 
         // The example's version is illustrative: PROTOCOL_VERSION is bumped on release
-        assert_eq!(public_file.base_url, "https://alice.dev/");
-        assert_eq!(public_file.site.title, "Alice's Garden");
+        assert_eq!(
+            public_file.site.description.as_deref(),
+            Some("A blog about …")
+        );
+        assert_eq!(public_file.site.language.as_deref(), Some("en"));
         assert_eq!(public_file.nodes.len(), 3);
-        assert_eq!(public_file.edges.len(), 3);
+        assert_eq!(public_file.edges[0].edge_type, EdgeType::Internal);
         assert_eq!(public_file.edges[2].edge_type, EdgeType::Friend);
     }
 
@@ -180,66 +161,33 @@ mod tests {
             "version": "0.1.0",
             "generated_at": "2026-02-17T12:00:00Z",
             "base_url": "https://alice.dev/",
-            "site": {
-                "title": "Alice's Garden",
-                "description": "A blog about …",
-                "language": "en"
-            },
-            "nodes": [
-                { "url": "/", "title": "Home" },
-                { "url": "/about", "title": "About" }
-            ],
-            "edges": [
-                { "source": "/", "target": "/about", "type": "internal" }
-            ]
+            "site": { "title": "Alice's Garden" },
+            "nodes": [{ "url": "/", "title": "Home" }],
+            "edges": []
         }"#;
 
         let public_file =
             PublicFile::from_json(json).expect("0.1.0 file without friends should deserialize");
 
-        assert_eq!(public_file.friends, Vec::<String>::new());
+        assert!(public_file.friends.is_empty());
     }
 
     #[test]
-    fn from_json_rejects_malformed_json() {
-        let result = PublicFile::from_json("{not json");
-
-        assert!(result.is_err());
-        assert!(
-            matches!(result.unwrap_err(), Error::JsonDeserialize(_)),
-            "expected JsonDeserialize error"
-        );
-    }
-
-    #[test]
-    fn from_json_rejects_missing_required_fields() {
-        let result = PublicFile::from_json(r#"{"version":"0.1.0"}"#);
-
-        assert!(result.is_err());
-        assert!(
-            matches!(result.unwrap_err(), Error::JsonDeserialize(_)),
-            "expected JsonDeserialize error for missing fields"
-        );
-    }
-
-    #[test]
-    fn from_json_rejects_wrong_field_types() {
-        let json = r#"{
-            "version": "0.1.0",
-            "generated_at": "2026-02-17T12:00:00Z",
-            "base_url": "https://alice.dev/",
-            "site": { "title": "Test" },
-            "friends": [],
-            "nodes": "not_an_array",
-            "edges": []
-        }"#;
-
-        let result = PublicFile::from_json(json);
-
-        assert!(result.is_err());
-        assert!(
-            matches!(result.unwrap_err(), Error::JsonDeserialize(_)),
-            "expected JsonDeserialize error for wrong field types"
-        );
+    fn from_json_rejects_invalid_input() {
+        let cases = [
+            ("malformed json", "{not json"),
+            ("missing fields", r#"{"version":"0.1.0"}"#),
+            (
+                "wrong field type",
+                r#"{"version":"0.1.0","generated_at":"x","base_url":"x","site":{"title":"x"},"nodes":"nope","edges":[]}"#,
+            ),
+        ];
+        for (label, json) in cases {
+            let result = PublicFile::from_json(json);
+            assert!(
+                matches!(result, Err(Error::JsonDeserialize(_))),
+                "{label}: expected JsonDeserialize, got {result:?}"
+            );
+        }
     }
 }

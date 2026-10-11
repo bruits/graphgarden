@@ -1,280 +1,228 @@
 use std::borrow::Cow;
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
 use lol_html::html_content::{Element, EndTag};
 use lol_html::{
-    ElementContentHandlers, EndTagHandler, HandlerResult, RewriteStrSettings, element, rewrite_str,
-    text,
+    ElementContentHandlers, EndTagHandler, HandlerResult, RewriteStrSettings, Selector, element,
+    rewrite_str, text,
 };
+use url::Url;
 
+use crate::config;
 use crate::error::{Error, Result};
 use crate::model::{Edge, EdgeType, Node};
 
-/// Helper to build an end-tag handler with the correct `Box<dyn FnOnce>` type.
+type Handler<'a> = (Cow<'a, Selector>, ElementContentHandlers<'a>);
+
+#[derive(Debug, Clone)]
+pub struct Extractor {
+    base: Url,
+    friends: Vec<Url>,
+    exclude_selectors: Vec<Selector>,
+}
+
+impl Extractor {
+    /// Parses the site origin, the friend origins and the CSS selectors whose links are ignored.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidBaseUrl`], [`Error::InvalidFriendUrl`] or [`Error::InvalidSelector`]
+    /// for a value [`Config::validate`] would reject.
+    ///
+    /// [`Config::validate`]: crate::config::Config::validate
+    pub fn new(base_url: &str, friends: &[String], exclude_selectors: &[String]) -> Result<Self> {
+        Ok(Self {
+            base: config::parse_base_url(base_url)?,
+            friends: config::parse_friends(friends)?,
+            exclude_selectors: exclude_selectors
+                .iter()
+                .map(|selector| config::parse_selector(selector))
+                .collect::<Result<_>>()?,
+        })
+    }
+
+    /// Extracts a page node and its outgoing edges from HTML content.
+    ///
+    /// `page_url` is the page path in node URL form, e.g. `/about/` for `about/index.html`. Each
+    /// `href` resolves against it as in a browser, `<base href>` aside.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::HtmlParse`] if the HTML rewriter fails.
+    pub fn extract_page(&self, html: &str, page_url: &str) -> Result<(Node, Vec<Edge>)> {
+        let mut title = String::new();
+        let mut edges = Vec::new();
+        let excluded_depth = Rc::new(Cell::new(0));
+
+        let mut handlers = title_handlers(&mut title);
+        handlers.extend(self.exclusion_handlers(&excluded_depth));
+        handlers.push(self.link_handler(page_url, &excluded_depth, &mut edges));
+
+        let settings = handlers.into_iter().fold(
+            RewriteStrSettings::new(),
+            RewriteStrSettings::append_element_content_handler,
+        );
+        rewrite_str(html, settings).map_err(|err| Error::HtmlParse {
+            page: page_url.to_owned(),
+            reason: err.to_string(),
+        })?;
+
+        let title = title.trim().to_owned();
+        let node = Node {
+            url: page_url.to_owned(),
+            title: if title.is_empty() {
+                page_url.to_owned()
+            } else {
+                title
+            },
+        };
+        Ok((node, edges))
+    }
+
+    /// Converts a `/`-separated file path relative to the output directory into the page URL path.
+    ///
+    /// Segments are percent-encoded like link targets, so a `#`, `?` or `\` in a file name stays in
+    /// the path.
+    pub(crate) fn url_for_file(&self, relative_path: &str) -> String {
+        let mut page = self.base.clone();
+        page.path_segments_mut()
+            .expect("http(s) URLs can be a base")
+            .clear()
+            .extend(relative_path.split('/'));
+        normalize_html_path(page.path())
+    }
+
+    /// Counts open excluded elements.
+    fn exclusion_handlers(&self, depth: &Rc<Cell<usize>>) -> Vec<Handler<'_>> {
+        self.exclude_selectors
+            .iter()
+            .map(|selector| {
+                let depth = Rc::clone(depth);
+                let handler = ElementContentHandlers::default().element(move |el: &mut Element| {
+                    // Void elements such as <img> never close, so counting them would hide the rest
+                    // of the page
+                    if let Some(end_tag_handlers) = el.end_tag_handlers() {
+                        depth.set(depth.get() + 1);
+                        let depth = Rc::clone(&depth);
+                        end_tag_handlers.push(end_tag_handler(move |_| {
+                            depth.set(depth.get() - 1);
+                            Ok(())
+                        }));
+                    }
+                    Ok(())
+                });
+                (Cow::Borrowed(selector), handler)
+            })
+            .collect()
+    }
+
+    fn link_handler<'a>(
+        &'a self,
+        page_url: &'a str,
+        excluded_depth: &'a Cell<usize>,
+        edges: &'a mut Vec<Edge>,
+    ) -> Handler<'a> {
+        // `set_path` cannot fail or change the host, whatever `page_url` holds
+        let mut page = self.base.clone();
+        page.set_path(page_url);
+        let mut seen = HashSet::new();
+
+        element!("a[href]", move |el| {
+            if excluded_depth.get() > 0 {
+                return Ok(());
+            }
+            if let Some(href) = el.get_attribute("href")
+                && let Some((target, edge_type)) = self.classify(&page, &href)
+                && seen.insert(target.clone())
+            {
+                edges.push(Edge {
+                    source: page_url.to_owned(),
+                    target,
+                    edge_type,
+                });
+            }
+            Ok(())
+        })
+    }
+
+    fn classify(&self, page: &Url, href: &str) -> Option<(String, EdgeType)> {
+        let href = href.trim();
+        if href.is_empty() {
+            return None;
+        }
+        let url = page.join(href).ok()?;
+        if !matches!(url.scheme(), "http" | "https") {
+            return None;
+        }
+
+        if same_site(&url, &self.base) {
+            let target = normalize_html_path(url.path());
+            if target == normalize_html_path(page.path()) {
+                return None;
+            }
+            return Some((target, EdgeType::Internal));
+        }
+
+        let friend = self.friends.iter().find(|friend| same_site(&url, friend))?;
+        // Rebuilt on the declared origin so a friend page has one id whatever scheme the link used
+        let mut target = friend.clone();
+        target.set_path(url.path());
+        Some((target.into(), EdgeType::Friend))
+    }
+}
+
+fn title_handlers(title: &mut String) -> Vec<Handler<'_>> {
+    let done = Rc::new(Cell::new(false));
+    let open = {
+        let done = Rc::clone(&done);
+        element!("title", move |el| {
+            if !done.get()
+                && let Some(end_tag_handlers) = el.end_tag_handlers()
+            {
+                let done = Rc::clone(&done);
+                end_tag_handlers.push(end_tag_handler(move |_| {
+                    done.set(true);
+                    Ok(())
+                }));
+            }
+            Ok(())
+        })
+    };
+    let chunks = text!("title", move |chunk| {
+        if !done.get() {
+            title.push_str(chunk.as_str());
+        }
+        Ok(())
+    });
+    vec![open, chunks]
+}
+
+/// `lol_html` requires end-tag handlers to be `'static`, so the state they touch lives in an `Rc`.
 fn end_tag_handler(
     f: impl FnOnce(&mut EndTag<'_>) -> HandlerResult + 'static,
 ) -> EndTagHandler<'static> {
     Box::new(f)
 }
 
-/// Extracts a page node and its outgoing edges from HTML content.
-///
-/// Links inside elements matching `exclude_selectors` are ignored.
-/// External links that don't match any friend URL are dropped.
-pub fn extract_page(
-    html: &str,
-    page_url: &str,
-    base_url: &str,
-    friends: &[String],
-    exclude_selectors: &[String],
-) -> Result<(Node, Vec<Edge>)> {
-    let title_text = Rc::new(RefCell::new(String::new()));
-    let title_done = Rc::new(Cell::new(false));
-    let excluded_depth = Rc::new(Cell::new(0usize));
-    let collected_edges = Rc::new(RefCell::new(Vec::<Edge>::new()));
-    let seen_targets = Rc::new(RefCell::new(HashSet::<String>::new()));
-
-    let mut handlers: Vec<(Cow<lol_html::Selector>, ElementContentHandlers)> = Vec::new();
-
-    // Mark end of first <title> so we only capture the first occurrence
+/// Node URLs and edge targets both go through here so they agree.
+fn normalize_html_path(path: &str) -> String {
+    if let Some(dir) = path.strip_suffix("index.html")
+        && dir.ends_with('/')
     {
-        let done = Rc::clone(&title_done);
-        handlers.push(element!("title", move |el| {
-            if !done.get() {
-                let d = Rc::clone(&done);
-                if let Some(handlers) = el.end_tag_handlers() {
-                    handlers.push(end_tag_handler(move |_| {
-                        d.set(true);
-                        Ok(())
-                    }));
-                }
-            }
-            Ok(())
-        }));
+        return dir.to_owned();
     }
-
-    // Accumulate text chunks inside the first <title>
-    {
-        let text_buf = Rc::clone(&title_text);
-        let done = Rc::clone(&title_done);
-        handlers.push(text!("title", move |chunk| {
-            if !done.get() {
-                text_buf.borrow_mut().push_str(chunk.as_str());
-            }
-            Ok(())
-        }));
-    }
-
-    // Depth counter for excluded CSS selectors — links inside are skipped
-    for selector_str in exclude_selectors {
-        let selector = selector_str.parse::<lol_html::Selector>().map_err(|err| {
-            Error::HtmlParse(format!("invalid CSS selector '{selector_str}': {err}"))
-        })?;
-        let depth = Rc::clone(&excluded_depth);
-        handlers.push((
-            Cow::Owned(selector),
-            ElementContentHandlers::default().element(move |el: &mut Element| {
-                depth.set(depth.get() + 1);
-                let d = Rc::clone(&depth);
-                if let Some(h) = el.end_tag_handlers() {
-                    h.push(end_tag_handler(move |_| {
-                        d.set(d.get() - 1);
-                        Ok(())
-                    }));
-                }
-                Ok(())
-            }),
-        ));
-    }
-
-    // Collect <a href="..."> links, deduplicating by target
-    {
-        let depth = Rc::clone(&excluded_depth);
-        let edges = Rc::clone(&collected_edges);
-        let seen = Rc::clone(&seen_targets);
-        let page = page_url.to_owned();
-        let base = base_url.to_owned();
-        let friends_owned = friends.to_vec();
-
-        handlers.push(element!("a[href]", move |el| {
-            if depth.get() > 0 {
-                return Ok(());
-            }
-            if let Some(href) = el.get_attribute("href")
-                && let Some((target, edge_type)) =
-                    classify_href(&href, &page, &base, &friends_owned)
-                && seen.borrow_mut().insert(target.clone())
-            {
-                edges.borrow_mut().push(Edge {
-                    source: page.clone(),
-                    target,
-                    edge_type,
-                });
-            }
-            Ok(())
-        }));
-    }
-
-    let settings = handlers
-        .into_iter()
-        .fold(RewriteStrSettings::new(), |settings, handler| {
-            settings.append_element_content_handler(handler)
-        });
-
-    rewrite_str(html, settings).map_err(|err| Error::HtmlParse(err.to_string()))?;
-
-    let title = {
-        let t = title_text.borrow();
-        let trimmed = t.trim();
-        if trimmed.is_empty() {
-            page_url.to_owned()
-        } else {
-            trimmed.to_owned()
-        }
-    };
-
-    let node = Node {
-        url: page_url.to_owned(),
-        title,
-    };
-
-    let edges = Rc::try_unwrap(collected_edges)
-        .expect("all handler references are dropped after rewrite_str")
-        .into_inner();
-
-    Ok((node, edges))
-}
-
-// ---------------------------------------------------------------------------
-// URL classification helpers
-// ---------------------------------------------------------------------------
-
-/// Classifies an href as internal, friend, or external (dropped).
-fn classify_href(
-    href: &str,
-    page_url: &str,
-    base_url: &str,
-    friends: &[String],
-) -> Option<(String, EdgeType)> {
-    let href = href.trim();
-
-    if href.is_empty()
-        || href.starts_with('#')
-        || href.starts_with('?')
-        || href.starts_with("mailto:")
-        || href.starts_with("tel:")
-        || href.starts_with("javascript:")
-        || href.starts_with("data:")
-    {
-        return None;
-    }
-
-    // Protocol-relative URL — treat as https
-    if href.starts_with("//") {
-        let absolute = format!("https:{href}");
-        return classify_absolute_url(&absolute, base_url, friends);
-    }
-
-    if href.starts_with("http://") || href.starts_with("https://") {
-        return classify_absolute_url(href, base_url, friends);
-    }
-
-    // Absolute path
-    if href.starts_with('/') {
-        let clean = strip_query_and_fragment(href);
-        let normalized = normalize_internal_path(clean);
-        return Some((normalized, EdgeType::Internal));
-    }
-
-    // Relative path — resolve against the current page
-    let clean = strip_query_and_fragment(href);
-    let resolved = resolve_relative_url(page_url, clean);
-    let normalized = normalize_internal_path(&resolved);
-    Some((normalized, EdgeType::Internal))
-}
-
-fn classify_absolute_url(
-    href: &str,
-    base_url: &str,
-    friends: &[String],
-) -> Option<(String, EdgeType)> {
-    let clean = strip_query_and_fragment(href);
-    let base = base_url.trim_end_matches('/');
-
-    // Internal: same origin
-    if clean == base {
-        return Some((String::from("/"), EdgeType::Internal));
-    }
-    if let Some(rest) = clean.strip_prefix(base)
-        && rest.starts_with('/')
-    {
-        let normalized = normalize_internal_path(rest);
-        return Some((normalized, EdgeType::Internal));
-    }
-
-    // Friend: matches a friend base URL
-    for friend in friends {
-        let friend_base = friend.trim_end_matches('/');
-        if clean == friend_base
-            || clean
-                .strip_prefix(friend_base)
-                .is_some_and(|rest| rest.starts_with('/'))
-        {
-            return Some((clean.to_owned(), EdgeType::Friend));
-        }
-    }
-
-    // External non-friend link — drop
-    None
-}
-
-/// Normalizes internal paths to match the URL form produced by `file_path_to_url`.
-/// Without this, edge targets like `/about/index.html` would never match node URLs.
-fn normalize_internal_path(path: &str) -> String {
-    if path.ends_with("/index.html") {
-        let mut result = path[..path.len() - "index.html".len()].to_owned();
-        if result.is_empty() {
-            result.push('/');
-        }
-        return result;
-    }
-    if let Some(stripped) = path.strip_suffix(".html") {
-        return stripped.to_owned();
+    if let Some(stem) = path.strip_suffix(".html") {
+        return stem.to_owned();
     }
     path.to_owned()
 }
 
-fn strip_query_and_fragment(url: &str) -> &str {
-    let end = url.find(['?', '#']).unwrap_or(url.len());
-    &url[..end]
-}
-
-/// Resolves a relative URL path against a page URL's directory.
-fn resolve_relative_url(page_url: &str, href: &str) -> String {
-    let dir = match page_url.rfind('/') {
-        Some(pos) => &page_url[..=pos],
-        None => "/",
-    };
-
-    let mut segments: Vec<&str> = dir.split('/').filter(|s| !s.is_empty()).collect();
-
-    for part in href.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                segments.pop();
-            }
-            other => segments.push(other),
-        }
-    }
-
-    if segments.is_empty() {
-        String::from("/")
-    } else {
-        format!("/{}", segments.join("/"))
-    }
+/// Same host and port, any scheme, so `http://` links to an `https://` site stay internal.
+/// [`Url::port`] returns `None` for a scheme's default port.
+fn same_site(a: &Url, b: &Url) -> bool {
+    a.host_str() == b.host_str() && a.port() == b.port()
 }
 
 #[cfg(test)]
@@ -290,247 +238,199 @@ mod tests {
         ]
     }
 
-    #[test]
-    fn extract_internal_links() {
-        let html = r#"
-            <html><head><title>Home</title></head>
-            <body>
-                <a href="/about">About</a>
-                <a href="/posts/hello">Hello</a>
-            </body></html>
-        "#;
+    fn extractor(selectors: &[&str]) -> Extractor {
+        let selectors: Vec<String> = selectors.iter().map(|s| (*s).to_owned()).collect();
+        Extractor::new(BASE_URL, &friends(), &selectors).unwrap()
+    }
 
-        let (node, edges) = extract_page(html, "/", BASE_URL, &friends(), &[]).unwrap();
+    fn extract(html: &str, page_url: &str) -> (Node, Vec<Edge>) {
+        extractor(&[]).extract_page(html, page_url).unwrap()
+    }
 
-        assert_eq!(node.url, "/");
-        assert_eq!(node.title, "Home");
-        assert_eq!(edges.len(), 2);
-        assert!(edges.iter().all(|e| e.edge_type == EdgeType::Internal));
-        assert!(edges.iter().any(|e| e.target == "/about"));
-        assert!(edges.iter().any(|e| e.target == "/posts/hello"));
+    fn extract_excluding(html: &str, selectors: &[&str]) -> Vec<String> {
+        let (_, edges) = extractor(selectors).extract_page(html, "/").unwrap();
+        edges.into_iter().map(|e| e.target).collect()
     }
 
     #[test]
-    fn extract_friend_links() {
-        let html = r#"
-            <html><head><title>Home</title></head>
-            <body>
-                <a href="https://bob.dev/">Bob</a>
-                <a href="https://carol.dev/post/1">Carol's post</a>
-            </body></html>
-        "#;
+    fn classifies_hrefs() {
+        use EdgeType::{Friend, Internal};
 
-        let (_, edges) = extract_page(html, "/", BASE_URL, &friends(), &[]).unwrap();
+        type Case = (&'static str, &'static str, Option<(&'static str, EdgeType)>);
+        let cases: &[Case] = &[
+            ("/", "/about", Some(("/about", Internal))),
+            ("/", "/about/index.html", Some(("/about/", Internal))),
+            ("/", "/posts/hello.html", Some(("/posts/hello", Internal))),
+            ("/", "/about?x=1#frag", Some(("/about", Internal))),
+            ("/posts/hello", "../about", Some(("/about", Internal))),
+            (
+                "/posts/hello",
+                "../about/index.html",
+                Some(("/about/", Internal)),
+            ),
+            ("/posts/hello", "./other", Some(("/posts/other", Internal))),
+            ("/posts/hello", "../../../about", Some(("/about", Internal))),
+            ("/", "https://alice.dev/about", Some(("/about", Internal))),
+            (
+                "/",
+                "https://alice.dev/about/index.html",
+                Some(("/about/", Internal)),
+            ),
+            ("/", "https://ALICE.dev/about", Some(("/about", Internal))),
+            ("/about", "https://alice.dev", Some(("/", Internal))),
+            ("/", "http://alice.dev/about", Some(("/about", Internal))),
+            ("/", "/a b.html", Some(("/a%20b", Internal))),
+            ("/", "/", None),
+            ("/", "#section", None),
+            ("/", "?x=1", None),
+            ("/posts/hello", "/posts/hello.html#top", None),
+            ("/", "", None),
+            ("/", "   ", None),
+            ("/", "mailto:a@b.com", None),
+            ("/", "MAILTO:a@b.com", None),
+            ("/", "tel:+33123456789", None),
+            ("/", "javascript:void(0)", None),
+            ("/", "data:text/html,hi", None),
+            ("/", "ftp://alice.dev/file", None),
+            ("/", "sms:+33123456789", None),
+            ("/", "blob:https://alice.dev/uuid", None),
+            ("/", "https://bob.dev/", Some(("https://bob.dev/", Friend))),
+            ("/", "https://bob.dev", Some(("https://bob.dev/", Friend))),
+            ("/", "HTTPS://bob.dev/", Some(("https://bob.dev/", Friend))),
+            (
+                "/",
+                "http://bob.dev/post",
+                Some(("https://bob.dev/post", Friend)),
+            ),
+            (
+                "/",
+                "//carol.dev/post/1",
+                Some(("https://carol.dev/post/1", Friend)),
+            ),
+            (
+                "/",
+                "https://carol.dev/post/1?x=1#y",
+                Some(("https://carol.dev/post/1", Friend)),
+            ),
+            ("/", "https://random.com/", None),
+            ("/", "https://bob.dev.evil.com/", None),
+            ("/", "https://alice.dev:8443/about", None),
+        ];
 
-        assert_eq!(edges.len(), 2);
-        assert!(edges.iter().all(|e| e.edge_type == EdgeType::Friend));
+        for (page, href, expected) in cases {
+            let html = format!("<html><body><a href=\"{href}\">x</a></body></html>");
+            let (_, edges) = extract(&html, page);
+            let actual: Vec<(&str, EdgeType)> = edges
+                .iter()
+                .map(|e| (e.target.as_str(), e.edge_type.clone()))
+                .collect();
+            let expected: Vec<(&str, EdgeType)> = expected.clone().into_iter().collect();
+            assert_eq!(actual, expected, "page {page}, href {href:?}");
+        }
     }
 
     #[test]
-    fn extract_drops_external_links() {
+    fn edges_carry_the_page_as_source() {
+        let (_, edges) = extract(r#"<a href="/about">About</a>"#, "/posts/hello");
+        assert_eq!(edges[0].source, "/posts/hello");
+    }
+
+    #[test]
+    fn deduplicates_targets_within_a_page() {
         let html = r#"
-            <html><head><title>Home</title></head>
-            <body>
-                <a href="/about">About</a>
-                <a href="https://random.com/">Random</a>
-                <a href="https://other.org/page">Other</a>
-            </body></html>
+            <a href="/about">About</a>
+            <a href="/about.html">About again</a>
+            <a href="https://alice.dev/about?x=1">About once more</a>
         "#;
-
-        let (_, edges) = extract_page(html, "/", BASE_URL, &friends(), &[]).unwrap();
-
+        let (_, edges) = extract(html, "/");
         assert_eq!(edges.len(), 1);
         assert_eq!(edges[0].target, "/about");
-        assert_eq!(edges[0].edge_type, EdgeType::Internal);
     }
 
     #[test]
-    fn extract_excluded_selectors() {
+    fn captures_first_title_trimmed() {
         let html = r#"
-            <html><head><title>Home</title></head>
-            <body>
-                <nav><a href="/hidden">Hidden</a></nav>
-                <main><a href="/visible">Visible</a></main>
-                <footer><a href="/also-hidden">Also hidden</a></footer>
-            </body></html>
+            <html><head><title>
+                My Page Title
+            </title></head>
+            <body><svg><title>Icon</title></svg></body></html>
         "#;
-
-        let selectors = vec![String::from("nav"), String::from("footer")];
-        let (_, edges) = extract_page(html, "/", BASE_URL, &friends(), &selectors).unwrap();
-
-        assert_eq!(edges.len(), 1);
-        assert_eq!(edges[0].target, "/visible");
-    }
-
-    #[test]
-    fn extract_title() {
-        let html = r#"
-            <html><head><title>My Page Title</title></head>
-            <body></body></html>
-        "#;
-
-        let (node, _) = extract_page(html, "/page", BASE_URL, &friends(), &[]).unwrap();
-
+        let (node, _) = extract(html, "/page");
         assert_eq!(node.title, "My Page Title");
     }
 
     #[test]
-    fn extract_title_fallback() {
-        let html = "<html><body><a href=\"/about\">link</a></body></html>";
-
-        let (node, _) = extract_page(html, "/page", BASE_URL, &friends(), &[]).unwrap();
-
+    fn title_falls_back_to_page_url() {
+        let (node, _) = extract(
+            r#"<html><body><a href="/about">link</a></body></html>"#,
+            "/page",
+        );
         assert_eq!(node.title, "/page");
     }
 
     #[test]
-    fn extract_deduplication() {
+    fn excluded_selectors_skip_nested_links() {
         let html = r#"
-            <html><head><title>Home</title></head>
-            <body>
-                <a href="/about">About</a>
-                <a href="/about">About again</a>
-                <a href="/about">About once more</a>
-            </body></html>
+            <nav><a href="/hidden">Hidden</a></nav>
+            <main><a href="/visible">Visible</a></main>
+            <footer><div><a href="/also-hidden">Also hidden</a></div></footer>
+            <a class="skip" href="/self-match">Skip</a>
         "#;
-
-        let (_, edges) = extract_page(html, "/", BASE_URL, &friends(), &[]).unwrap();
-
-        assert_eq!(edges.len(), 1);
-        assert_eq!(edges[0].target, "/about");
+        let targets = extract_excluding(html, &["nav", "footer", ".skip"]);
+        assert_eq!(targets, vec!["/visible"]);
     }
 
     #[test]
-    fn extract_relative_link() {
-        let html = r#"
-            <html><head><title>Post</title></head>
-            <body><a href="../about">About</a></body></html>
-        "#;
-
-        let (_, edges) = extract_page(html, "/posts/hello", BASE_URL, &friends(), &[]).unwrap();
-
-        assert_eq!(edges.len(), 1);
-        assert_eq!(edges[0].target, "/about");
-        assert_eq!(edges[0].edge_type, EdgeType::Internal);
+    fn excluded_void_elements_do_not_swallow_later_links() {
+        for html in [
+            r#"<img src="x.png"><a href="/after">After</a>"#,
+            r#"<br><a href="/after">After</a>"#,
+            r#"<hr><a href="/after">After</a>"#,
+        ] {
+            let targets = extract_excluding(html, &["img", "br", "hr"]);
+            assert_eq!(targets, vec!["/after"], "html: {html}");
+        }
     }
 
     #[test]
-    fn extract_absolute_url_matching_base() {
-        let html = r#"
-            <html><head><title>Home</title></head>
-            <body><a href="https://alice.dev/about">About</a></body></html>
-        "#;
-
-        let (_, edges) = extract_page(html, "/", BASE_URL, &friends(), &[]).unwrap();
-
-        assert_eq!(edges.len(), 1);
-        assert_eq!(edges[0].target, "/about");
-        assert_eq!(edges[0].edge_type, EdgeType::Internal);
+    fn rejects_invalid_css_selector() {
+        let err = Extractor::new(BASE_URL, &[], &[String::from("a]")]).unwrap_err();
+        assert!(
+            matches!(err, Error::InvalidSelector { ref selector, .. } if selector == "a]"),
+            "got {err:?}"
+        );
     }
 
     #[test]
-    fn extract_drops_fragment_only_and_special_schemes() {
-        let html = r##"
-            <html><head><title>Home</title></head>
-            <body>
-                <a href="#section">Fragment</a>
-                <a href="mailto:a@b.com">Email</a>
-                <a href="javascript:void(0)">JS</a>
-                <a href="/real">Real</a>
-            </body></html>
-        "##;
-
-        let (_, edges) = extract_page(html, "/", BASE_URL, &friends(), &[]).unwrap();
-
-        assert_eq!(edges.len(), 1);
-        assert_eq!(edges[0].target, "/real");
+    fn rejects_friend_with_a_path() {
+        let err =
+            Extractor::new(BASE_URL, &[String::from("https://bob.dev/blog/")], &[]).unwrap_err();
+        assert!(matches!(err, Error::InvalidFriendUrl { .. }), "got {err:?}");
     }
 
     #[test]
-    fn extract_normalizes_internal_index_html() {
-        let html = r#"
-            <html><head><title>Home</title></head>
-            <body><a href="/about/index.html">About</a></body></html>
-        "#;
-
-        let (_, edges) = extract_page(html, "/", BASE_URL, &friends(), &[]).unwrap();
-
-        assert_eq!(edges.len(), 1);
-        assert_eq!(edges[0].target, "/about/");
-        assert_eq!(edges[0].edge_type, EdgeType::Internal);
+    fn url_for_file_normalizes_and_encodes() {
+        let extractor = extractor(&[]);
+        let cases = [
+            ("index.html", "/"),
+            ("about/index.html", "/about/"),
+            ("posts/hello.html", "/posts/hello"),
+            ("myindex.html", "/myindex"),
+            ("a b/c d.html", "/a%20b/c%20d"),
+            ("notes.htm", "/notes.htm"),
+            ("c#.html", "/c%23"),
+            ("q?.html", "/q%3F"),
+            ("\\evil.html", "/%5Cevil"),
+        ];
+        for (path, expected) in cases {
+            assert_eq!(extractor.url_for_file(path), expected, "path {path}");
+        }
     }
 
     #[test]
-    fn extract_normalizes_internal_html_extension() {
-        let html = r#"
-            <html><head><title>Home</title></head>
-            <body><a href="/posts/hello.html">Hello</a></body></html>
-        "#;
-
-        let (_, edges) = extract_page(html, "/", BASE_URL, &friends(), &[]).unwrap();
-
-        assert_eq!(edges.len(), 1);
-        assert_eq!(edges[0].target, "/posts/hello");
-        assert_eq!(edges[0].edge_type, EdgeType::Internal);
-    }
-
-    #[test]
-    fn extract_normalizes_absolute_url_with_html_extension() {
-        let html = r#"
-            <html><head><title>Home</title></head>
-            <body><a href="https://alice.dev/about/index.html">About</a></body></html>
-        "#;
-
-        let (_, edges) = extract_page(html, "/", BASE_URL, &friends(), &[]).unwrap();
-
-        assert_eq!(edges.len(), 1);
-        assert_eq!(edges[0].target, "/about/");
-        assert_eq!(edges[0].edge_type, EdgeType::Internal);
-    }
-
-    #[test]
-    fn extract_normalizes_relative_html_link() {
-        let html = r#"
-            <html><head><title>Post</title></head>
-            <body><a href="../about/index.html">About</a></body></html>
-        "#;
-
-        let (_, edges) = extract_page(html, "/posts/hello", BASE_URL, &friends(), &[]).unwrap();
-
-        assert_eq!(edges.len(), 1);
-        assert_eq!(edges[0].target, "/about/");
-        assert_eq!(edges[0].edge_type, EdgeType::Internal);
-    }
-
-    #[test]
-    fn extract_query_only_href_produces_no_edge() {
-        let html = r#"
-            <html><head><title>Home</title></head>
-            <body><a href="?x=1">Query only</a></body></html>
-        "#;
-
-        let (_, edges) = extract_page(html, "/", BASE_URL, &friends(), &[]).unwrap();
-
+    fn extract_page_accepts_odd_page_urls() {
+        let (node, edges) = extractor(&[]).extract_page("", "\\[").unwrap();
+        assert_eq!(node.url, "\\[");
         assert!(edges.is_empty());
-    }
-
-    #[test]
-    fn extract_rejects_invalid_css_selector() {
-        let html = "<html><body><a href=\"/about\">link</a></body></html>";
-        let selectors = vec![String::from("a]")];
-
-        let result = extract_page(html, "/", BASE_URL, &friends(), &selectors);
-
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(
-            matches!(err, Error::HtmlParse(_)),
-            "expected HtmlParse error, got: {err:?}"
-        );
-        let msg = err.to_string();
-        assert!(
-            msg.contains("invalid CSS selector"),
-            "error message should mention invalid CSS selector, got: {msg}"
-        );
     }
 }

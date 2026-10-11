@@ -8,7 +8,7 @@ We provide a Rust implementation of the protocol, a CLI to generate the public f
 
 ## Public File
 
-Served at `BASE_URL/.well-known/graphgarden.json`.
+Served at `BASE_URL/.well-known/graphgarden.json`, where `BASE_URL` is the site origin.
 
 ```jsonc
 {
@@ -16,7 +16,7 @@ Served at `BASE_URL/.well-known/graphgarden.json`.
   "version": "0.2.0",
   // ISO 8601 timestamp of generation (UTC) used for caching
   "generated_at": "2026-02-17T12:00:00Z",
-  // Canonical site URL (with trailing slash)
+  // Site origin with a trailing slash and no path
   "base_url": "https://alice.dev/",
   "site": {
     "title": "Alice's Garden",        // required
@@ -37,11 +37,12 @@ Served at `BASE_URL/.well-known/graphgarden.json`.
 }
 ```
 
+- **`base_url`** — site origin with a trailing slash and no path, such as `https://alice.dev/`. A page under `https://x.dev/garden/` belongs to the `https://x.dev/` graph, since this file lives under `/.well-known/`.
 - **`nodes[].url`** — relative path on the same site.
 - **`edges[].source`** — relative path (must match a node).
-- **`edges[].target`** — relative path for `internal`, absolute URL for `friend`.
-- **`edges[].type`** — `"internal"` (same site) or `"friend"` (site declared in config). Other external links are ignored during crawl.
-- **`friends`** — array of declared friend site base URLs. All listed origins are fetched unconditionally by the web component, regardless of whether any edges reference them.
+- **`edges[].target`** — relative path for `internal`, absolute URL for `friend`. Internal targets **SHOULD** match a node. Generators drop links to excluded, missing or non-HTML pages.
+- **`edges[].type`** — `"internal"` (same site) or `"friend"` (site declared in config). Other external links are ignored when the file is generated.
+- **`friends`** — array of declared friend site origins, in the same form as `base_url`. All listed origins are fetched unconditionally by the web component, regardless of whether any edges reference them. Files from protocol 0.1.0 omit this field, which consumers **MUST** read as an empty array.
 
 ## Caching
 

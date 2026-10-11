@@ -6,21 +6,26 @@ See the [protocol specification](https://github.com/bruits/graphgarden/blob/main
 
 ## Modules
 
-- **`config`** — `Config::from_file(path)` loads a `graphgarden.toml` configuration file. Also implements `FromStr` for parsing from a raw string.
-- **`model`** — Protocol data types: `Node`, `Edge`, `EdgeType`, `SiteMetadata`, `PublicFile`. `PublicFile` exposes `to_json()` / `from_json()` helpers.
-- **`extract`** — `extract_page(html, page_url, base_url, friends, exclude_selectors)` parses an HTML page (via `lol_html`), extracts the title and links, and classifies edges as `Internal` or `Friend` (external links are dropped). Returns `Result<(Node, Vec<Edge>)>`.
-- **`build`** — `build(config)` walks the output directory, applies include/exclude globs, extracts links from every matched HTML file, and returns a complete `Result<PublicFile>`.
+- **`config`** — `Config` mirrors `graphgarden.toml`, with `SiteConfig`, `OutputConfig` and `ParseConfig` for its tables. `Config::from_file(path)` and `FromStr` parse it, and `Config::validate()` checks every value before any file is read.
+- **`model`** — Protocol data types: `Node`, `Edge`, `EdgeType`, `SiteMetadata`, `PublicFile`. `PublicFile` exposes `to_json()` / `from_json()` helpers. `PROTOCOL_VERSION` is re-exported at the crate root.
+- **`extract`** — `Extractor::new(base_url, friends, exclude_selectors)` parses the site settings once, and `extract_page(html, page_url)` parses one HTML page via `lol_html` and returns `Result<(Node, Vec<Edge>)>`. Links to the site's host become `Internal` edges, links to a friend's host become `Friend` edges, and the rest is dropped.
+- **`build`** — `build(config)` walks the output directory, extracts every HTML file matched by the include and exclude globs, and returns `Result<PublicFile>` with sorted nodes and edges. Internal edges to pages outside the graph are dropped. It does not call `validate()`.
 - **`error`** — `Error` enum and `Result<T>` alias, both re-exported at the crate root.
 
 ## Quick example
 
 ```rust
-use graphgarden_core::config::Config;
 use graphgarden_core::build::build;
+use graphgarden_core::config::Config;
 
-let config = Config::from_file("graphgarden.toml")?;
-let public_file = build(&config)?;
-let json = public_file.to_json()?;
+fn main() -> graphgarden_core::Result<()> {
+    let config = Config::from_file("graphgarden.toml")?;
+    config.validate()?;
+    let public_file = build(&config)?;
+    let json = public_file.to_json()?;
+    println!("{json}");
+    Ok(())
+}
 ```
 
 ## Development

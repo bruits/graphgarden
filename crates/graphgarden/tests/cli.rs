@@ -1,908 +1,242 @@
-use std::collections::HashSet;
 use std::fs;
-use std::path::Path;
 
+use assert_cmd::Command;
+use assert_cmd::assert::Assert;
 use assert_cmd::cargo_bin_cmd;
 use graphgarden_core::PROTOCOL_VERSION;
+use graphgarden_core::model::{Edge, EdgeType, Node, PublicFile, SiteMetadata};
+use predicates::str::contains;
 use tempfile::TempDir;
 
-fn write_file(dir: &Path, relative: &str, content: &str) {
-    let path = dir.join(relative);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).unwrap();
-    }
-    fs::write(path, content).unwrap();
-}
-
-fn minimal_config(base_url: &str, output_dir: &str) -> String {
-    format!(
-        r#"[site]
-base_url = "{base_url}"
+const DEFAULT_CONFIG: &str = r#"
+[site]
+base_url = "https://test.dev/"
 title = "Test Site"
 
 [output]
-dir = "{output_dir}"
-"#,
-    )
+dir = "dist"
+"#;
+
+/// The CLI runs from inside the temp dir, so configs use a relative `output.dir` and need no
+/// `--config`.
+struct Site {
+    tmp: TempDir,
 }
 
-fn full_config(options: &ConfigOptions) -> String {
-    let mut toml = String::new();
-
-    if !options.friends.is_empty() {
-        let items: Vec<String> = options.friends.iter().map(|f| format!("\"{f}\"")).collect();
-        toml.push_str(&format!("friends = [{}]\n\n", items.join(", ")));
+impl Site {
+    fn new() -> Self {
+        let tmp = TempDir::new().unwrap();
+        fs::create_dir(tmp.path().join("dist")).unwrap();
+        let site = Self { tmp };
+        site.config(DEFAULT_CONFIG);
+        site
     }
 
-    let base_url = options.base_url;
-    let title = options.title;
-    toml.push_str(&format!(
-        "[site]\nbase_url = \"{base_url}\"\ntitle = \"{title}\"\n"
-    ));
-    if let Some(desc) = options.description {
-        toml.push_str(&format!("description = \"{desc}\"\n"));
-    }
-    if let Some(lang) = options.language {
-        toml.push_str(&format!("language = \"{lang}\"\n"));
+    fn config(&self, toml: &str) -> &Self {
+        fs::write(self.tmp.path().join("graphgarden.toml"), toml).unwrap();
+        self
     }
 
-    let output_dir = options.output_dir;
-    toml.push_str(&format!("\n[output]\ndir = \"{output_dir}\"\n"));
-
-    if !options.exclude.is_empty() || !options.exclude_selectors.is_empty() {
-        toml.push_str("\n[parse]\n");
-        if !options.exclude.is_empty() {
-            let items: Vec<String> = options.exclude.iter().map(|e| format!("\"{e}\"")).collect();
-            toml.push_str(&format!("exclude = [{}]\n", items.join(", ")));
-        }
-        if !options.exclude_selectors.is_empty() {
-            let items: Vec<String> = options
-                .exclude_selectors
-                .iter()
-                .map(|s| format!("\"{s}\""))
-                .collect();
-            toml.push_str(&format!("exclude_selectors = [{}]\n", items.join(", ")));
-        }
+    fn page(&self, relative: &str, html: &str) -> &Self {
+        let path = self.tmp.path().join("dist").join(relative);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, html).unwrap();
+        self
     }
 
-    toml
+    fn command(&self) -> Command {
+        let mut command = cargo_bin_cmd!("graphgarden");
+        command.current_dir(self.tmp.path());
+        command
+    }
+
+    fn build(&self) -> PublicFile {
+        self.command().arg("build").assert().success();
+        let json = fs::read_to_string(self.tmp.path().join("dist/.well-known/graphgarden.json"))
+            .expect("protocol file should be written");
+        PublicFile::from_json(&json).expect("protocol file should be valid")
+    }
+
+    fn build_failure(&self) -> Assert {
+        self.command().arg("build").assert().failure().code(1)
+    }
 }
 
-struct ConfigOptions<'a> {
-    base_url: &'a str,
-    title: &'a str,
-    output_dir: &'a str,
-    description: Option<&'a str>,
-    language: Option<&'a str>,
-    friends: &'a [&'a str],
-    exclude: &'a [&'a str],
-    exclude_selectors: &'a [&'a str],
+fn page(title: &str, body: &str) -> String {
+    format!("<html><head><title>{title}</title></head><body>{body}</body></html>")
 }
 
-const DEFAULTS: ConfigOptions<'static> = ConfigOptions {
-    base_url: "",
-    title: "",
-    output_dir: "",
-    description: None,
-    language: None,
-    friends: &[],
-    exclude: &[],
-    exclude_selectors: &[],
-};
+fn node(url: &str, title: &str) -> Node {
+    Node {
+        url: url.to_owned(),
+        title: title.to_owned(),
+    }
+}
 
-/// Runs a `graphgarden build` and returns the parsed output JSON.
-fn run_build_and_read_output(config_path: &Path, output_dir: &Path) -> serde_json::Value {
-    cargo_bin_cmd!("graphgarden")
-        .args(["build", "--config", config_path.to_str().unwrap()])
-        .assert()
-        .success();
-
-    let json_path = output_dir.join(".well-known/graphgarden.json");
-    assert!(json_path.exists(), "protocol file should be written");
-
-    let content = fs::read_to_string(&json_path).unwrap();
-    serde_json::from_str(&content).expect("protocol file should contain valid JSON")
+fn edge(source: &str, target: &str, edge_type: EdgeType) -> Edge {
+    Edge {
+        source: source.to_owned(),
+        target: target.to_owned(),
+        edge_type,
+    }
 }
 
 #[test]
-fn build_happy_path() {
-    let tmp = TempDir::new().unwrap();
+fn build_writes_the_protocol_file() {
+    let site = Site::new();
+    site.config(
+        r#"
+        friends = ["https://bob.dev/"]
 
-    let output_dir = tmp.path().join("dist");
-    fs::create_dir_all(&output_dir).unwrap();
+        [site]
+        base_url = "https://test.dev/"
+        title = "My Garden"
+        description = "A lovely garden"
+        language = "en"
 
-    write_file(
-        &output_dir,
+        [output]
+        dir = "dist"
+
+        [parse]
+        exclude = ["admin/**"]
+        exclude_selectors = ["nav"]
+        "#,
+    )
+    .page(
         "index.html",
-        r#"<html><head><title>Home</title></head><body>
-            <a href="/about/">About</a>
-        </body></html>"#,
-    );
-    write_file(
-        &output_dir,
-        "about/index.html",
-        r#"<html><head><title>About</title></head><body>
-            <a href="/">Home</a>
-        </body></html>"#,
-    );
-
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        minimal_config("https://test.dev/", output_dir.to_str().unwrap()),
+        &page(
+            "Home",
+            r#"<nav><a href="/posts/hello">Hello</a></nav>
+               <a href="/about/">About</a>
+               <a href="https://bob.dev/">Bob</a>
+               <a href="https://external.com/">External</a>
+               <a href="/admin/">Admin</a>"#,
+        ),
     )
-    .unwrap();
+    .page(
+        "about/index.html",
+        &page(
+            "About",
+            r##"<a href="/">Home</a> <a href="https://bob.dev/posts/cool">Cool</a> <a href="#top">Top</a>"##,
+        ),
+    )
+    .page(
+        "posts/hello.html",
+        &page("Hello World", r#"<a href="../about/index.html">About</a>"#),
+    )
+    .page("admin/index.html", &page("Admin", ""));
 
-    cargo_bin_cmd!("graphgarden")
-        .args(["build", "--config", config_path.to_str().unwrap()])
-        .assert()
-        .success();
+    let first = site.build();
+    let second = site.build();
 
-    let json_path = output_dir.join(".well-known/graphgarden.json");
-    assert!(json_path.exists(), "protocol file should be written");
-
-    let content = fs::read_to_string(&json_path).unwrap();
-    let value: serde_json::Value =
-        serde_json::from_str(&content).expect("protocol file should contain valid JSON");
-
-    assert_eq!(value["base_url"], "https://test.dev/");
-    assert_eq!(value["site"]["title"], "Test Site");
-    assert!(!value["nodes"].as_array().unwrap().is_empty());
-
-    let friends = value["friends"].as_array().unwrap();
-    assert!(friends.is_empty());
+    assert!(!first.generated_at.is_empty());
+    let expected = PublicFile {
+        version: String::from(PROTOCOL_VERSION),
+        generated_at: first.generated_at.clone(),
+        base_url: String::from("https://test.dev/"),
+        site: SiteMetadata {
+            title: String::from("My Garden"),
+            description: Some(String::from("A lovely garden")),
+            language: Some(String::from("en")),
+        },
+        friends: vec![String::from("https://bob.dev/")],
+        nodes: vec![
+            node("/", "Home"),
+            node("/about/", "About"),
+            node("/posts/hello", "Hello World"),
+        ],
+        edges: vec![
+            edge("/", "/about/", EdgeType::Internal),
+            edge("/", "https://bob.dev/", EdgeType::Friend),
+            edge("/about/", "/", EdgeType::Internal),
+            edge("/about/", "https://bob.dev/posts/cool", EdgeType::Friend),
+            edge("/posts/hello", "/about/", EdgeType::Internal),
+        ],
+    };
+    assert_eq!(first, expected);
+    assert_eq!(
+        PublicFile {
+            generated_at: first.generated_at.clone(),
+            ..second
+        },
+        expected,
+        "rebuilding an unchanged site must overwrite the file with the same content"
+    );
 }
 
 #[test]
-fn build_missing_config() {
-    cargo_bin_cmd!("graphgarden")
+fn build_accepts_a_config_path() {
+    let site = Site::new();
+    fs::remove_file(site.tmp.path().join("graphgarden.toml")).unwrap();
+    fs::create_dir(site.tmp.path().join("conf")).unwrap();
+    fs::write(site.tmp.path().join("conf/custom.toml"), DEFAULT_CONFIG).unwrap();
+    site.page("index.html", &page("Home", ""));
+
+    site.command()
+        .args(["build", "--config", "conf/custom.toml"])
+        .assert()
+        .success()
+        .stdout(contains("dist/.well-known/graphgarden.json"));
+
+    assert!(
+        site.tmp
+            .path()
+            .join("dist/.well-known/graphgarden.json")
+            .exists()
+    );
+}
+
+#[test]
+fn build_fails_when_config_is_missing() {
+    Site::new()
+        .command()
         .args(["build", "--config", "nonexistent.toml"])
         .assert()
         .failure()
-        .stderr(predicates::str::contains("failed to load config"));
+        .code(1)
+        .stderr(contains("failed to load config from nonexistent.toml"))
+        .stderr(contains("config file not found"));
 }
 
 #[test]
-fn build_missing_output_dir() {
-    let tmp = TempDir::new().unwrap();
+fn build_fails_on_invalid_config() {
+    let cases = [
+        (
+            "base_url with a path",
+            "[site]\nbase_url = \"https://test.dev/garden/\"\ntitle = \"T\"\n[output]\ndir = \"dist\"\n",
+            "invalid base_url",
+        ),
+        (
+            "missing output dir",
+            "[site]\nbase_url = \"https://test.dev/\"\ntitle = \"T\"\n[output]\ndir = \"nope\"\n",
+            "output directory does not exist",
+        ),
+        (
+            "invalid selector",
+            "[site]\nbase_url = \"https://test.dev/\"\ntitle = \"T\"\n[output]\ndir = \"dist\"\n[parse]\nexclude_selectors = [\"a]\"]\n",
+            "invalid CSS selector",
+        ),
+        (
+            "malformed toml",
+            "[site\nbase_url = ",
+            "failed to parse config",
+        ),
+    ];
 
-    let missing_output = tmp.path().join("no_such_dir");
+    for (label, toml, expected) in cases {
+        let site = Site::new();
+        site.config(toml);
+        let assert = site.build_failure();
+        let stderr = String::from_utf8_lossy(&assert.get_output().stderr);
+        assert!(stderr.contains(expected), "{label}: stderr was:\n{stderr}");
+    }
+}
 
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        minimal_config("https://test.dev/", missing_output.to_str().unwrap()),
-    )
-    .unwrap();
-
+#[test]
+fn version_flag_prints_the_crate_version() {
     cargo_bin_cmd!("graphgarden")
-        .args(["build", "--config", config_path.to_str().unwrap()])
+        .arg("--version")
         .assert()
-        .failure()
-        .stderr(predicates::str::contains("output directory does not exist"));
-}
-
-#[test]
-fn build_multi_page_internal_links() {
-    let tmp = TempDir::new().unwrap();
-    let output_dir = tmp.path().join("dist");
-    fs::create_dir_all(&output_dir).unwrap();
-
-    write_file(
-        &output_dir,
-        "index.html",
-        r#"<html><head><title>Home</title></head><body>
-            <a href="/about/">About</a>
-            <a href="/posts/hello">Hello Post</a>
-        </body></html>"#,
-    );
-    write_file(
-        &output_dir,
-        "about/index.html",
-        r#"<html><head><title>About</title></head><body>
-            <a href="/">Home</a>
-        </body></html>"#,
-    );
-    write_file(
-        &output_dir,
-        "posts/hello.html",
-        r#"<html><head><title>Hello World</title></head><body>
-            <a href="/about/">About</a>
-        </body></html>"#,
-    );
-
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        minimal_config("https://test.dev/", output_dir.to_str().unwrap()),
-    )
-    .unwrap();
-
-    let value = run_build_and_read_output(&config_path, &output_dir);
-
-    let nodes = value["nodes"].as_array().unwrap();
-    assert_eq!(nodes.len(), 3);
-
-    let node_urls: HashSet<&str> = nodes.iter().map(|n| n["url"].as_str().unwrap()).collect();
-    assert!(node_urls.contains("/"));
-    assert!(node_urls.contains("/about/"));
-    assert!(node_urls.contains("/posts/hello"));
-
-    let edges = value["edges"].as_array().unwrap();
-    assert_eq!(edges.len(), 4);
-
-    let has_edge = |source: &str, target: &str, edge_type: &str| {
-        edges
-            .iter()
-            .any(|e| e["source"] == source && e["target"] == target && e["type"] == edge_type)
-    };
-
-    assert!(has_edge("/", "/about/", "internal"));
-    assert!(has_edge("/", "/posts/hello", "internal"));
-    assert!(has_edge("/about/", "/", "internal"));
-    assert!(has_edge("/posts/hello", "/about/", "internal"));
-
-    assert!(edges.iter().all(|e| e["type"] == "internal"));
-}
-
-#[test]
-fn build_friend_links() {
-    let tmp = TempDir::new().unwrap();
-    let output_dir = tmp.path().join("dist");
-    fs::create_dir_all(&output_dir).unwrap();
-
-    write_file(
-        &output_dir,
-        "index.html",
-        r#"<html><head><title>Home</title></head><body>
-            <a href="/about/">About</a>
-            <a href="https://bob.dev/">Bob's Site</a>
-            <a href="https://external.com/">External</a>
-        </body></html>"#,
-    );
-    write_file(
-        &output_dir,
-        "about/index.html",
-        r#"<html><head><title>About</title></head><body>
-            <a href="/">Home</a>
-            <a href="https://bob.dev/posts/cool">Bob's Post</a>
-        </body></html>"#,
-    );
-
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        full_config(&ConfigOptions {
-            base_url: "https://test.dev/",
-            title: "Test Site",
-            output_dir: output_dir.to_str().unwrap(),
-            friends: &["https://bob.dev/"],
-            ..DEFAULTS
-        }),
-    )
-    .unwrap();
-
-    let value = run_build_and_read_output(&config_path, &output_dir);
-    let edges = value["edges"].as_array().unwrap();
-
-    assert!(
-        edges.iter().any(|e| e["source"] == "/"
-            && e["target"] == "https://bob.dev/"
-            && e["type"] == "friend")
-    );
-    assert!(edges.iter().any(|e| e["source"] == "/about/"
-        && e["target"] == "https://bob.dev/posts/cool"
-        && e["type"] == "friend"));
-
-    assert!(
-        !edges.iter().any(|e| {
-            let target = e["target"].as_str().unwrap_or("");
-            target.contains("external.com")
-        }),
-        "external non-friend links should be dropped"
-    );
-
-    let friends = value["friends"].as_array().unwrap();
-    assert_eq!(friends.len(), 1);
-    assert_eq!(friends[0], "https://bob.dev/");
-
-    assert!(
-        edges
-            .iter()
-            .any(|e| e["source"] == "/" && e["target"] == "/about/" && e["type"] == "internal")
-    );
-    assert!(
-        edges
-            .iter()
-            .any(|e| e["source"] == "/about/" && e["target"] == "/" && e["type"] == "internal")
-    );
-}
-
-#[test]
-fn build_exclude_patterns() {
-    let tmp = TempDir::new().unwrap();
-    let output_dir = tmp.path().join("dist");
-    fs::create_dir_all(&output_dir).unwrap();
-
-    write_file(
-        &output_dir,
-        "index.html",
-        r#"<html><head><title>Home</title></head><body>
-            <a href="/admin/">Admin</a>
-        </body></html>"#,
-    );
-    write_file(
-        &output_dir,
-        "admin/index.html",
-        r#"<html><head><title>Admin</title></head><body>
-            <a href="/">Home</a>
-        </body></html>"#,
-    );
-
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        full_config(&ConfigOptions {
-            base_url: "https://test.dev/",
-            title: "Test Site",
-            output_dir: output_dir.to_str().unwrap(),
-            exclude: &["admin/**"],
-            ..DEFAULTS
-        }),
-    )
-    .unwrap();
-
-    let value = run_build_and_read_output(&config_path, &output_dir);
-
-    let nodes = value["nodes"].as_array().unwrap();
-    assert_eq!(nodes.len(), 1);
-    assert_eq!(nodes[0]["url"], "/");
-
-    assert!(
-        !nodes.iter().any(|n| {
-            let url = n["url"].as_str().unwrap_or("");
-            url.contains("admin")
-        }),
-        "admin node should not exist"
-    );
-
-    let edges = value["edges"].as_array().unwrap();
-    for edge in edges {
-        let source = edge["source"].as_str().unwrap_or("");
-        assert!(
-            !source.contains("admin"),
-            "no edge should originate from admin"
-        );
-    }
-}
-
-#[test]
-fn build_exclude_selectors() {
-    let tmp = TempDir::new().unwrap();
-    let output_dir = tmp.path().join("dist");
-    fs::create_dir_all(&output_dir).unwrap();
-
-    write_file(
-        &output_dir,
-        "index.html",
-        r#"<html><head><title>Home</title></head><body>
-            <nav><a href="/nav-link">Nav Link</a></nav>
-            <footer><a href="/footer-link">Footer Link</a></footer>
-            <main>
-                <a href="/about/">About</a>
-                <a href="/contact">Contact</a>
-            </main>
-        </body></html>"#,
-    );
-    write_file(
-        &output_dir,
-        "about/index.html",
-        r#"<html><head><title>About</title></head><body>
-            <a href="/">Home</a>
-        </body></html>"#,
-    );
-
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        full_config(&ConfigOptions {
-            base_url: "https://test.dev/",
-            title: "Test Site",
-            output_dir: output_dir.to_str().unwrap(),
-            exclude_selectors: &["nav", "footer"],
-            ..DEFAULTS
-        }),
-    )
-    .unwrap();
-
-    let value = run_build_and_read_output(&config_path, &output_dir);
-    let edges = value["edges"].as_array().unwrap();
-
-    assert!(
-        !edges.iter().any(|e| {
-            let target = e["target"].as_str().unwrap_or("");
-            target == "/nav-link" || target == "/footer-link"
-        }),
-        "links inside excluded selectors should not appear as edges"
-    );
-
-    assert!(
-        edges
-            .iter()
-            .any(|e| e["source"] == "/" && e["target"] == "/about/")
-    );
-    assert!(
-        edges
-            .iter()
-            .any(|e| e["source"] == "/" && e["target"] == "/contact")
-    );
-}
-
-#[test]
-fn build_full_config() {
-    let tmp = TempDir::new().unwrap();
-    let output_dir = tmp.path().join("dist");
-    fs::create_dir_all(&output_dir).unwrap();
-
-    write_file(
-        &output_dir,
-        "index.html",
-        r#"<html><head><title>Home</title></head><body>
-            <nav><a href="/nav-only">Nav</a></nav>
-            <main>
-                <a href="/about/">About</a>
-                <a href="https://bob.dev/">Bob</a>
-                <a href="https://external.com/">External</a>
-            </main>
-        </body></html>"#,
-    );
-    write_file(
-        &output_dir,
-        "about/index.html",
-        r#"<html><head><title>About</title></head><body>
-            <a href="/">Home</a>
-        </body></html>"#,
-    );
-    write_file(
-        &output_dir,
-        "admin/index.html",
-        r#"<html><head><title>Admin</title></head><body>
-            <a href="/">Home</a>
-        </body></html>"#,
-    );
-
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        full_config(&ConfigOptions {
-            base_url: "https://test.dev/",
-            title: "My Garden",
-            output_dir: output_dir.to_str().unwrap(),
-            description: Some("A lovely garden"),
-            language: Some("en"),
-            friends: &["https://bob.dev/"],
-            exclude: &["admin/**"],
-            exclude_selectors: &["nav"],
-        }),
-    )
-    .unwrap();
-
-    let value = run_build_and_read_output(&config_path, &output_dir);
-
-    assert_eq!(value["site"]["title"], "My Garden");
-    assert_eq!(value["site"]["description"], "A lovely garden");
-    assert_eq!(value["site"]["language"], "en");
-    assert_eq!(value["base_url"], "https://test.dev/");
-
-    let nodes = value["nodes"].as_array().unwrap();
-    let node_urls: HashSet<&str> = nodes.iter().map(|n| n["url"].as_str().unwrap()).collect();
-    assert_eq!(node_urls.len(), 2);
-    assert!(node_urls.contains("/"));
-    assert!(node_urls.contains("/about/"));
-    assert!(!node_urls.contains("/admin/"));
-
-    let edges = value["edges"].as_array().unwrap();
-
-    assert!(
-        !edges
-            .iter()
-            .any(|e| e["target"].as_str().unwrap_or("") == "/nav-only")
-    );
-
-    assert!(
-        edges.iter().any(|e| e["source"] == "/"
-            && e["target"] == "https://bob.dev/"
-            && e["type"] == "friend")
-    );
-
-    assert!(
-        !edges
-            .iter()
-            .any(|e| e["target"].as_str().unwrap_or("").contains("external.com"))
-    );
-
-    assert!(
-        edges
-            .iter()
-            .any(|e| e["source"] == "/" && e["target"] == "/about/" && e["type"] == "internal")
-    );
-    assert!(
-        edges
-            .iter()
-            .any(|e| e["source"] == "/about/" && e["target"] == "/" && e["type"] == "internal")
-    );
-
-    let friends = value["friends"].as_array().unwrap();
-    assert_eq!(friends.len(), 1);
-    assert_eq!(friends[0], "https://bob.dev/");
-}
-
-#[test]
-fn build_protocol_invariants() {
-    let tmp = TempDir::new().unwrap();
-    let output_dir = tmp.path().join("dist");
-    fs::create_dir_all(&output_dir).unwrap();
-
-    write_file(
-        &output_dir,
-        "index.html",
-        r#"<html><head><title>Home</title></head><body>
-            <a href="/about/">About</a>
-            <a href="/posts/hello">Hello</a>
-        </body></html>"#,
-    );
-    write_file(
-        &output_dir,
-        "about/index.html",
-        r#"<html><head><title>About</title></head><body>
-            <a href="/">Home</a>
-        </body></html>"#,
-    );
-    write_file(
-        &output_dir,
-        "posts/hello.html",
-        r#"<html><head><title>Hello World</title></head><body>
-            <a href="/about/">About</a>
-            <a href="https://bob.dev/">Bob</a>
-        </body></html>"#,
-    );
-
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        full_config(&ConfigOptions {
-            base_url: "https://test.dev/",
-            title: "Test Site",
-            output_dir: output_dir.to_str().unwrap(),
-            friends: &["https://bob.dev/"],
-            ..DEFAULTS
-        }),
-    )
-    .unwrap();
-
-    let value = run_build_and_read_output(&config_path, &output_dir);
-
-    assert_eq!(value["version"], PROTOCOL_VERSION);
-
-    let generated_at = value["generated_at"].as_str().unwrap();
-    assert!(
-        is_iso8601_utc(generated_at),
-        "generated_at should match YYYY-MM-DDTHH:MM:SSZ, got: {generated_at}"
-    );
-
-    let base_url = value["base_url"].as_str().unwrap();
-    assert!(
-        base_url.ends_with('/'),
-        "base_url should have trailing slash"
-    );
-
-    let nodes = value["nodes"].as_array().unwrap();
-    let edges = value["edges"].as_array().unwrap();
-
-    let node_urls: HashSet<&str> = nodes.iter().map(|n| n["url"].as_str().unwrap()).collect();
-
-    assert_eq!(
-        node_urls.len(),
-        nodes.len(),
-        "there should be no duplicate nodes"
-    );
-
-    for edge in edges {
-        let source = edge["source"].as_str().unwrap();
-        assert!(
-            node_urls.contains(source),
-            "edge source '{source}' should match a node URL"
-        );
-    }
-
-    for edge in edges.iter().filter(|e| e["type"] == "internal") {
-        let target = edge["target"].as_str().unwrap();
-        assert!(
-            node_urls.contains(target),
-            "internal edge target '{target}' should match a node URL"
-        );
-    }
-
-    for edge in edges.iter().filter(|e| e["type"] == "friend") {
-        let target = edge["target"].as_str().unwrap();
-        assert!(
-            target.starts_with("http://") || target.starts_with("https://"),
-            "friend edge target should be an absolute URL, got: {target}"
-        );
-    }
-
-    let mut edge_pairs = HashSet::new();
-    for edge in edges {
-        let pair = (
-            edge["source"].as_str().unwrap(),
-            edge["target"].as_str().unwrap(),
-        );
-        assert!(edge_pairs.insert(pair), "duplicate edge found: {:?}", pair);
-    }
-
-    let friends = value["friends"].as_array().unwrap();
-    for friend in friends {
-        let url = friend.as_str().unwrap();
-        assert!(
-            url.starts_with("http://") || url.starts_with("https://"),
-            "friend URL should be absolute HTTP(S), got: {url}"
-        );
-    }
-}
-
-/// Validates that a string matches the `YYYY-MM-DDTHH:MM:SSZ` pattern.
-fn is_iso8601_utc(s: &str) -> bool {
-    if s.len() != 20 {
-        return false;
-    }
-    let bytes = s.as_bytes();
-
-    // Pattern: DDDD-DD-DDTDD:DD:DDZ where D is a digit
-    bytes[0..4].iter().all(u8::is_ascii_digit)
-        && bytes[4] == b'-'
-        && bytes[5..7].iter().all(u8::is_ascii_digit)
-        && bytes[7] == b'-'
-        && bytes[8..10].iter().all(u8::is_ascii_digit)
-        && bytes[10] == b'T'
-        && bytes[11..13].iter().all(u8::is_ascii_digit)
-        && bytes[13] == b':'
-        && bytes[14..16].iter().all(u8::is_ascii_digit)
-        && bytes[16] == b':'
-        && bytes[17..19].iter().all(u8::is_ascii_digit)
-        && bytes[19] == b'Z'
-}
-
-#[test]
-fn build_empty_site() {
-    let tmp = TempDir::new().unwrap();
-    let output_dir = tmp.path().join("dist");
-    fs::create_dir_all(&output_dir).unwrap();
-
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        minimal_config("https://test.dev/", output_dir.to_str().unwrap()),
-    )
-    .unwrap();
-
-    let value = run_build_and_read_output(&config_path, &output_dir);
-
-    let nodes = value["nodes"].as_array().unwrap();
-    let edges = value["edges"].as_array().unwrap();
-
-    assert!(nodes.is_empty(), "empty site should have no nodes");
-    assert!(edges.is_empty(), "empty site should have no edges");
-
-    // JSON is still structurally valid with required top-level fields
-    assert_eq!(value["version"], PROTOCOL_VERSION);
-    assert!(value["generated_at"].as_str().is_some());
-    assert_eq!(value["base_url"], "https://test.dev/");
-    assert_eq!(value["site"]["title"], "Test Site");
-
-    let friends = value["friends"].as_array().unwrap();
-    assert!(friends.is_empty());
-}
-
-#[test]
-fn build_normalizes_links() {
-    let tmp = TempDir::new().unwrap();
-    let output_dir = tmp.path().join("dist");
-    fs::create_dir_all(&output_dir).unwrap();
-
-    write_file(
-        &output_dir,
-        "index.html",
-        r#"<html><head><title>Home</title></head><body>
-            <a href="/about/index.html">About (index.html)</a>
-            <a href="/posts/hello.html">Hello (html ext)</a>
-        </body></html>"#,
-    );
-    write_file(
-        &output_dir,
-        "about/index.html",
-        r#"<html><head><title>About</title></head><body>
-            <a href="/">Home</a>
-        </body></html>"#,
-    );
-    write_file(
-        &output_dir,
-        "posts/hello.html",
-        r#"<html><head><title>Hello</title></head><body>
-            <a href="../about/index.html">About (relative)</a>
-        </body></html>"#,
-    );
-
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        minimal_config("https://test.dev/", output_dir.to_str().unwrap()),
-    )
-    .unwrap();
-
-    let value = run_build_and_read_output(&config_path, &output_dir);
-
-    let edges = value["edges"].as_array().unwrap();
-
-    assert!(
-        edges
-            .iter()
-            .any(|e| e["source"] == "/" && e["target"] == "/about/"),
-        "link to /about/index.html should be normalized to /about/"
-    );
-
-    assert!(
-        edges
-            .iter()
-            .any(|e| e["source"] == "/" && e["target"] == "/posts/hello"),
-        "link to /posts/hello.html should be normalized to /posts/hello"
-    );
-
-    assert!(
-        edges
-            .iter()
-            .any(|e| e["source"] == "/posts/hello" && e["target"] == "/about/"),
-        "relative link ../about/index.html should resolve and normalize to /about/"
-    );
-
-    for edge in edges {
-        let target = edge["target"].as_str().unwrap();
-        assert!(
-            !target.ends_with(".html"),
-            "edge target should be normalized (no .html suffix), got: {target}"
-        );
-    }
-}
-
-#[test]
-fn build_rejects_base_url_without_trailing_slash() {
-    let tmp = TempDir::new().unwrap();
-    let output_dir = tmp.path().join("dist");
-    fs::create_dir_all(&output_dir).unwrap();
-
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        minimal_config("https://test.dev", output_dir.to_str().unwrap()),
-    )
-    .unwrap();
-
-    cargo_bin_cmd!("graphgarden")
-        .args(["build", "--config", config_path.to_str().unwrap()])
-        .assert()
-        .failure()
-        .stderr(predicates::str::contains("trailing slash"));
-}
-
-#[test]
-fn build_rejects_invalid_friend_url() {
-    let tmp = TempDir::new().unwrap();
-    let output_dir = tmp.path().join("dist");
-    fs::create_dir_all(&output_dir).unwrap();
-
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        full_config(&ConfigOptions {
-            base_url: "https://test.dev/",
-            title: "Test Site",
-            output_dir: output_dir.to_str().unwrap(),
-            friends: &["not a url"],
-            ..DEFAULTS
-        }),
-    )
-    .unwrap();
-
-    cargo_bin_cmd!("graphgarden")
-        .args(["build", "--config", config_path.to_str().unwrap()])
-        .assert()
-        .failure()
-        .stderr(predicates::str::contains("invalid friend URL"));
-}
-
-#[test]
-fn build_rejects_non_http_friend_url() {
-    let tmp = TempDir::new().unwrap();
-    let output_dir = tmp.path().join("dist");
-    fs::create_dir_all(&output_dir).unwrap();
-
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        full_config(&ConfigOptions {
-            base_url: "https://test.dev/",
-            title: "Test Site",
-            output_dir: output_dir.to_str().unwrap(),
-            friends: &["ftp://bob.dev/"],
-            ..DEFAULTS
-        }),
-    )
-    .unwrap();
-
-    cargo_bin_cmd!("graphgarden")
-        .args(["build", "--config", config_path.to_str().unwrap()])
-        .assert()
-        .failure()
-        .stderr(predicates::str::contains("scheme must be http or https"));
-}
-
-#[test]
-fn build_with_non_html_files_in_output() {
-    let tmp = TempDir::new().unwrap();
-    let output_dir = tmp.path().join("dist");
-    fs::create_dir_all(&output_dir).unwrap();
-
-    write_file(
-        &output_dir,
-        "index.html",
-        "<html><head><title>Home</title></head><body></body></html>",
-    );
-    write_file(&output_dir, "style.css", "body { color: red; }");
-    write_file(&output_dir, "app.js", "console.log('hi');");
-    write_file(&output_dir, "logo.png", "fake png data");
-
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        minimal_config("https://test.dev/", output_dir.to_str().unwrap()),
-    )
-    .unwrap();
-
-    let value = run_build_and_read_output(&config_path, &output_dir);
-
-    let nodes = value["nodes"].as_array().unwrap();
-    assert_eq!(nodes.len(), 1);
-    assert_eq!(nodes[0]["url"], "/");
-    assert_eq!(nodes[0]["title"], "Home");
-}
-
-#[test]
-fn build_rejects_invalid_css_selector() {
-    let tmp = TempDir::new().unwrap();
-    let output_dir = tmp.path().join("dist");
-    fs::create_dir_all(&output_dir).unwrap();
-
-    write_file(
-        &output_dir,
-        "index.html",
-        "<html><head><title>Home</title></head><body><a href=\"/about\">link</a></body></html>",
-    );
-
-    let config_path = tmp.path().join("graphgarden.toml");
-    fs::write(
-        &config_path,
-        full_config(&ConfigOptions {
-            base_url: "https://test.dev/",
-            title: "Test Site",
-            output_dir: output_dir.to_str().unwrap(),
-            exclude_selectors: &["a]"],
-            ..DEFAULTS
-        }),
-    )
-    .unwrap();
-
-    cargo_bin_cmd!("graphgarden")
-        .args(["build", "--config", config_path.to_str().unwrap()])
-        .assert()
-        .failure()
-        .stderr(predicates::str::contains("invalid CSS selector"));
+        .success()
+        .stdout(contains(env!("CARGO_PKG_VERSION")));
 }

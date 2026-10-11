@@ -7,6 +7,7 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(
     name = "graphgarden",
+    version,
     about = "Turn web rings into explorable node graphs"
 )]
 struct Cli {
@@ -33,14 +34,10 @@ fn main() -> Result<()> {
 }
 
 fn run_build(config_path: &Path) -> Result<()> {
-    let config = graphgarden_core::config::Config::from_file(config_path).context(format!(
-        "failed to load config from {}",
-        config_path.display()
-    ))?;
+    let config = graphgarden_core::config::Config::from_file(config_path)
+        .with_context(|| format!("failed to load config from {}", config_path.display()))?;
 
     config.validate().context("config validation failed")?;
-
-    let output_dir = PathBuf::from(&config.output.dir);
 
     let public_file = graphgarden_core::build::build(&config)
         .context("failed to build the graph from the output directory")?;
@@ -49,14 +46,13 @@ fn run_build(config_path: &Path) -> Result<()> {
         .to_json()
         .context("failed to serialize the public file to JSON")?;
 
-    let well_known = output_dir.join(".well-known");
-    fs::create_dir_all(&well_known).context(format!(
-        "failed to create directory {}",
-        well_known.display()
-    ))?;
+    let well_known = Path::new(&config.output.dir).join(".well-known");
+    fs::create_dir_all(&well_known)
+        .with_context(|| format!("failed to create directory {}", well_known.display()))?;
 
     let destination = well_known.join("graphgarden.json");
-    fs::write(&destination, json).context(format!("failed to write {}", destination.display()))?;
+    fs::write(&destination, json)
+        .with_context(|| format!("failed to write {}", destination.display()))?;
 
     println!("✔ wrote {}", destination.display());
     Ok(())

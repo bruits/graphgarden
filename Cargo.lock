@@ -375,7 +375,6 @@ dependencies = [
  "clap",
  "graphgarden-core",
  "predicates",
- "serde_json",
  "tempfile",
 ]
 

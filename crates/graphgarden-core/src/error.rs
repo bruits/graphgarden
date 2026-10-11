@@ -6,41 +6,51 @@ pub enum Error {
     #[error("config file not found: {0}")]
     ConfigNotFound(PathBuf),
 
-    #[error("failed to read config file: {0}")]
-    ConfigRead(std::io::Error),
+    #[error("failed to read config file {path}")]
+    ConfigRead {
+        path: PathBuf,
+        source: std::io::Error,
+    },
 
-    #[error("failed to read {1}: {0}")]
-    FileRead(std::io::Error, PathBuf),
-
-    #[error("failed to write {1}: {0}")]
-    FileWrite(std::io::Error, PathBuf),
-
-    #[error("failed to parse config: {0}")]
+    #[error("failed to parse config")]
     ConfigParse(#[from] toml::de::Error),
 
-    #[error("invalid base_url '{0}': {1}")]
-    InvalidBaseUrl(String, String),
+    #[error("invalid base_url '{url}': {reason}")]
+    InvalidBaseUrl { url: String, reason: String },
 
-    #[error("invalid friend URL '{0}': {1}")]
-    InvalidFriendUrl(String, String),
+    #[error("invalid friend URL '{url}': {reason}")]
+    InvalidFriendUrl { url: String, reason: String },
+
+    #[error("invalid CSS selector '{selector}': {reason}")]
+    InvalidSelector { selector: String, reason: String },
+
+    #[error("invalid glob pattern")]
+    GlobPattern(#[from] globset::Error),
 
     #[error("output directory does not exist: {0}")]
     OutputDirNotFound(PathBuf),
 
-    #[error("failed to serialize JSON: {0}")]
+    #[error("directory walk failed")]
+    DirectoryWalk(#[from] walkdir::Error),
+
+    #[error("failed to read {path}")]
+    FileRead {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+
+    #[error("HTML parsing failed on {page}: {reason}")]
+    HtmlParse {
+        /// Page URL path, e.g. `/about/`.
+        page: String,
+        reason: String,
+    },
+
+    #[error("failed to serialize JSON")]
     JsonSerialize(#[source] serde_json::Error),
 
-    #[error("failed to deserialize JSON: {0}")]
+    #[error("failed to deserialize JSON")]
     JsonDeserialize(#[source] serde_json::Error),
-
-    #[error("HTML parsing failed: {0}")]
-    HtmlParse(String),
-
-    #[error("invalid glob pattern: {0}")]
-    GlobPattern(#[from] globset::Error),
-
-    #[error("directory walk error: {0}")]
-    DirectoryWalk(#[from] walkdir::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
