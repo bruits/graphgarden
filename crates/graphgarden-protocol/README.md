@@ -13,7 +13,7 @@ Served at `BASE_URL/.well-known/graphgarden.json`.
 ```jsonc
 {
   // Protocol version, for future compatibility and fallback handling
-  "version": "0.1.0",
+  "version": "0.2.0",
   // ISO 8601 timestamp of generation (UTC) used for caching
   "generated_at": "2026-02-17T12:00:00Z",
   // Canonical site URL (with trailing slash)

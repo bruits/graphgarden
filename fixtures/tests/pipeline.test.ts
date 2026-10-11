@@ -20,6 +20,7 @@ const BOB_JSON_PATH = resolve(ROOT, "bob", "graphgarden.json");
 const CARGO_ROOT = resolve(ROOT, "..");
 const GRAPHGARDEN_BIN = resolve(CARGO_ROOT, "target", "debug", "graphgarden");
 const WEB_COMPONENT_DIR = resolve(ROOT, "../packages/graphgarden-web");
+const PROTOCOL_CARGO_TOML = resolve(CARGO_ROOT, "crates", "graphgarden-protocol", "Cargo.toml");
 
 describe("build pipeline", () => {
 	let aliceGraph: GraphGardenFile;
@@ -44,7 +45,11 @@ describe("build pipeline", () => {
 	});
 
 	test("version matches protocol", () => {
-		expect(aliceGraph.version).toBe("0.1.0");
+		const protocolVersion = readFileSync(PROTOCOL_CARGO_TOML, "utf-8").match(
+			/^version = "(.+)"$/m,
+		)?.[1];
+		expect(protocolVersion).toBeDefined();
+		expect(aliceGraph.version).toBe(protocolVersion);
 	});
 
 	test("generated_at is a valid ISO 8601 UTC timestamp", () => {

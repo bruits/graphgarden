@@ -3,6 +3,7 @@ use std::fs;
 use std::path::Path;
 
 use assert_cmd::cargo_bin_cmd;
+use graphgarden_core::PROTOCOL_VERSION;
 use tempfile::TempDir;
 
 fn write_file(dir: &Path, relative: &str, content: &str) {
@@ -581,7 +582,7 @@ fn build_protocol_invariants() {
 
     let value = run_build_and_read_output(&config_path, &output_dir);
 
-    assert_eq!(value["version"], "0.1.0");
+    assert_eq!(value["version"], PROTOCOL_VERSION);
 
     let generated_at = value["generated_at"].as_str().unwrap();
     assert!(
@@ -693,7 +694,7 @@ fn build_empty_site() {
     assert!(edges.is_empty(), "empty site should have no edges");
 
     // JSON is still structurally valid with required top-level fields
-    assert_eq!(value["version"], "0.1.0");
+    assert_eq!(value["version"], PROTOCOL_VERSION);
     assert!(value["generated_at"].as_str().is_some());
     assert_eq!(value["base_url"], "https://test.dev/");
     assert_eq!(value["site"]["title"], "Test Site");

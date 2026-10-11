@@ -31,15 +31,15 @@
 		"test:watch": "vitest"
 	},
 	"dependencies": {
-		"graphology": "^0.25",
+		"graphology": "^0.26",
 		"graphology-layout-forceatlas2": "^0.10",
 		"sigma": "^3"
 	},
 	"devDependencies": {
-		"esbuild": "^0.25",
-		"happy-dom": "^18",
+		"esbuild": "^0.28",
+		"happy-dom": "^20",
 		"tsx": "^4",
-		"typescript": "^5",
-		"vitest": "^3"
+		"typescript": "^7",
+		"vitest": "^5"
 	}
 }

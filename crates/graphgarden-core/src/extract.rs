@@ -117,14 +117,13 @@ pub fn extract_page(
         }));
     }
 
-    rewrite_str(
-        html,
-        RewriteStrSettings {
-            element_content_handlers: handlers,
-            ..RewriteStrSettings::new()
-        },
-    )
-    .map_err(|err| Error::HtmlParse(err.to_string()))?;
+    let settings = handlers
+        .into_iter()
+        .fold(RewriteStrSettings::new(), |settings, handler| {
+            settings.append_element_content_handler(handler)
+        });
+
+    rewrite_str(html, settings).map_err(|err| Error::HtmlParse(err.to_string()))?;
 
     let title = {
         let t = title_text.borrow();

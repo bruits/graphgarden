@@ -1,5 +1,1 @@
 packages: []
-
-onlyBuiltDependencies:
-  - esbuild
-  - sharp

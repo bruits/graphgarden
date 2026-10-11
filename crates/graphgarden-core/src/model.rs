@@ -143,7 +143,7 @@ mod tests {
     #[test]
     fn protocol_public_file_example_deserializes() {
         let json = r#"{
-            "version": "0.1.0",
+            "version": "0.2.0",
             "generated_at": "2026-02-17T12:00:00Z",
             "base_url": "https://alice.dev/",
             "site": {
@@ -166,7 +166,7 @@ mod tests {
 
         let public_file = PublicFile::from_json(json).expect("protocol example should deserialize");
 
-        assert_eq!(public_file.version, PROTOCOL_VERSION);
+        // The example's version is illustrative: PROTOCOL_VERSION is bumped on release
         assert_eq!(public_file.base_url, "https://alice.dev/");
         assert_eq!(public_file.site.title, "Alice's Garden");
         assert_eq!(public_file.nodes.len(), 3);

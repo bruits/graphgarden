@@ -7,9 +7,9 @@
 		"test:watch": "vitest"
 	},
 	"devDependencies": {
-		"@types/node": "^22",
+		"@types/node": "^24",
 		"graphgarden-web": "file:../packages/graphgarden-web",
-		"happy-dom": "^18",
-		"vitest": "^3"
+		"happy-dom": "^20",
+		"vitest": "^5"
 	}
 }

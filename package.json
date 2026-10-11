@@ -9,8 +9,8 @@
     "test:e2e": "cd fixtures && pnpm test"
   },
   "devDependencies": {
-    "oxfmt": "^0.33",
+    "oxfmt": "^0.72",
     "oxlint": "^1"
   },
-  "packageManager": "pnpm@10.29.1"
+  "packageManager": "pnpm@11.28.2"
 }

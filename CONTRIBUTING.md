@@ -15,10 +15,10 @@ We're also committed to fostering a welcoming and respectful community. Any issu
 
 ## Before Opening Issues
 
-- **Do not report security vulnerabilities publicly** (e.g., in issues or discussions), please refer to our [security policy](./SECURITY.md).
-- **Do not create issues for questions about using GraphGarden.** Instead, ask your question in our [GitHub Discussions](https://github.com/bruits/graphgarden/discussions/categories/q-a).
-- **Do not create issues for ideas or suggestions.** Instead, share your thoughts in our [GitHub Discussions](https://github.com/bruits/graphgarden/discussions/categories/ideas).
-- **Check for duplicates.** Look through existing issues and discussions to see if your topic has already been addressed.
+- **Do not report security vulnerabilities publicly** (e.g., in issues), please refer to our [security policy](./SECURITY.md).
+- **Do not create issues for questions about using GraphGarden.** Instead, ask on our [Discord](https://discord.com/invite/84pd4QtmzA).
+- **For ideas or feature suggestions**, open a [feature request issue](https://github.com/bruits/graphgarden/issues/new?template=02-feature-request.yml) or chat about it first on [Discord](https://discord.com/invite/84pd4QtmzA).
+- **Check for duplicates.** Look through existing issues to see if your topic has already been addressed.
 - In general, provide as much detail as possible. No worries if it's not perfect, we'll figure it out together.
 
 ## Before submitting Pull Requests (PRs)
@@ -54,7 +54,7 @@ Each feature or bug fix that changes the public API or user-facing behavior shou
 
 ## Getting Started
 
-GraphGarden is a polyglot monorepo. The Rust side uses [Cargo workspaces](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) (`crates/`), and the TypeScript side uses [pnpm workspaces](https://pnpm.io/workspaces) (`packages/`). Prerequisites: the latest stable [Rust](https://www.rust-lang.org/) toolchain, plus [Node.js](https://nodejs.org/) and [pnpm](https://pnpm.io/) for the web component and e2e tests.
+GraphGarden is a polyglot monorepo. The Rust side uses [Cargo workspaces](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) (`crates/`), and the TypeScript side uses [pnpm workspaces](https://pnpm.io/workspaces) (`packages/`). Prerequisites: the latest stable [Rust](https://www.rust-lang.org/) toolchain, plus [Node.js](https://nodejs.org/) (latest LTS) and [pnpm](https://pnpm.io/) for the web component and e2e tests.
 
 
 ### GraphGarden Protocol

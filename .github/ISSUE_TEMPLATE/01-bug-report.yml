@@ -1,6 +1,7 @@
 name: "Bug Report"
 description: Report an issue or possible bug
-labels: []
+type: "Bug"
+labels: ["Needs triage"]
 assignees: []
 body:
   - type: markdown
