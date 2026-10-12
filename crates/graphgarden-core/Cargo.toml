@@ -5,6 +5,8 @@ description = "Core library implementing the GraphGarden protocol — walk a bui
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+keywords.workspace = true
+categories = ["web-programming"]
 
 [lints]
 workspace = true

@@ -4,7 +4,7 @@ Each participating site publishes a `/.well-known/graphgarden.json` file describ
 
 The protocol is open and decentralized: if Alice adds Bob as a friend, Alice's component displays Bob's graph, but Bob does not display Alice's unless he independently adds her too.
 
-We provide a Rust implementation of the protocol, a CLI to generate the public file from a built site's HTML output, and a web component to display the graph on the site. But anyone can implement their own generator or visualizer as long as they adhere to the protocol specification below.
+We provide a Rust implementation of the protocol, a CLI to generate the public file from a built site's HTML output, and a web component to display the graph on the site. But anyone can implement their own generator or visualizer as long as they adhere to the protocol specification below. The [tutorial](./TUTORIAL.md) shows how to write the file yourself or with the CLI, then display it.
 
 ## Public File
 

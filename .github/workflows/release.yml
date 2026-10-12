@@ -35,8 +35,9 @@ jobs:
         with:
           node-version: lts/*
 
+      # Publishing needs only graphgarden-web's tree, and this job holds publish credentials
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --filter graphgarden-web
 
       - name: Build graphgarden-web
         run: pnpm --filter graphgarden-web run build

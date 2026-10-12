@@ -6,13 +6,14 @@ import {
 	fetchFriendGraphs,
 	assignLayout,
 	type GraphGardenFile,
-	GraphGarden,
+	type GraphGarden,
 	DEFAULT_CONFIG,
 } from "./index.js";
 
 // Sigma needs WebGL, which happy-dom lacks
 const { renderers, FakeSigma } = vi.hoisted(() => {
-	class FakeSigma {
+	const created: Fake[] = [];
+	class Fake {
 		handlers = new Map<string, (payload: { node: string }) => void>();
 		killed = false;
 		constructor(
@@ -20,7 +21,7 @@ const { renderers, FakeSigma } = vi.hoisted(() => {
 			_container: HTMLElement,
 			readonly settings: Record<string, unknown>,
 		) {
-			renderers.push(this);
+			created.push(this);
 		}
 		on(event: string, handler: (payload: { node: string }) => void) {
 			this.handlers.set(event, handler);
@@ -30,8 +31,7 @@ const { renderers, FakeSigma } = vi.hoisted(() => {
 			this.killed = true;
 		}
 	}
-	const renderers: FakeSigma[] = [];
-	return { renderers, FakeSigma };
+	return { renderers: created, FakeSigma: Fake };
 });
 vi.mock("sigma", () => ({ default: FakeSigma }));
 
@@ -89,6 +89,13 @@ function deferred<T>() {
 	let resolve!: (value: T) => void;
 	const promise = new Promise<T>((r) => (resolve = r));
 	return { promise, resolve };
+}
+
+function mount(configure: (element: GraphGarden) => void = () => {}): GraphGarden {
+	const element = document.createElement("graph-garden") as GraphGarden;
+	configure(element);
+	document.body.appendChild(element);
+	return element;
 }
 
 afterEach(() => {
@@ -369,7 +376,7 @@ describe("fetchFriendGraphs", () => {
 
 		await fetchFriendGraphs(graph, DEFAULT_CONFIG, [FRIEND]);
 
-		expect(graph.nodes().sort()).toEqual([FRIEND, LOCAL]);
+		expect(graph.nodes().toSorted()).toEqual([FRIEND, LOCAL]);
 		expect(graph.size).toBe(0);
 	});
 });
@@ -415,13 +422,6 @@ describe("assignLayout", () => {
 });
 
 describe("<graph-garden>", () => {
-	function mount(configure: (element: GraphGarden) => void = () => {}): GraphGarden {
-		const element = document.createElement("graph-garden") as GraphGarden;
-		configure(element);
-		document.body.appendChild(element);
-		return element;
-	}
-
 	test("renders the local graph with its friends merged in", async () => {
 		serve((url) => (url.startsWith(FRIEND) ? friendFile() : makeFile({ friends: [FRIEND] })));
 
@@ -526,12 +526,12 @@ describe("<graph-garden>", () => {
 
 	test("reads its sizes from attributes and its colours from CSS custom properties", async () => {
 		serve(() => makeFile({ edges: [{ source: "/", target: FRIEND, type: "friend" }] }));
-		const element = mount((element) => {
-			element.setAttribute("node-size", "7");
-			element.setAttribute("edge-size", "not-a-number");
-			element.setAttribute("label-size", "14");
-			element.style.setProperty("--gg-local-node-color", "#ff0000");
-			element.style.setProperty("--gg-label-color", "#00ff00");
+		const element = mount((garden) => {
+			garden.setAttribute("node-size", "7");
+			garden.setAttribute("edge-size", "not-a-number");
+			garden.setAttribute("label-size", "14");
+			garden.style.setProperty("--gg-local-node-color", "#ff0000");
+			garden.style.setProperty("--gg-label-color", "#00ff00");
 		});
 		await element.ready;
 

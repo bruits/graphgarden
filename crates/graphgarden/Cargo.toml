@@ -5,6 +5,8 @@ description = "CLI for GraphGarden — walk a built site and generate its protoc
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+keywords.workspace = true
+categories = ["command-line-utilities", "web-programming"]
 
 [lints]
 workspace = true

@@ -10,6 +10,7 @@ members = [
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/bruits/graphgarden"
+keywords = ["webring", "graph", "static-site", "indieweb", "links"]
 
 [workspace.lints.clippy]
 missing_errors_doc = "warn"

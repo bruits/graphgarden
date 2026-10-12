@@ -2,23 +2,23 @@
 
 > If you look the right way, you can see that the whole world is a garden.
 
-A [protocol](./crates/graphgarden-protocol/README.md), and related tools, to turn web rings into explorable node graphs 🪴
+A protocol, and related tools, to turn web rings into explorable node graphs. Read the [protocol](./crates/graphgarden-protocol/README.md), or follow the [tutorial](./crates/graphgarden-protocol/TUTORIAL.md) to plant your own garden 🪴
 
-## Packages
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./.github/assets/screenshot_dark.webp" />
+  <img alt="A personal site's pages in indigo, linked to its friends' pages in amber, with grey nodes for links that lead to no known page" src="./.github/assets/screenshot.webp" />
+</picture>
 
-GraphGarden is a monorepo that contains the following Rust crates and TypeScript packages:
+## Acknowledgements
 
-| Name                   | Description                                                           | Registry                                                                                                                                                                  | README                                            |
-| ---------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `graphgarden-protocol` | Protocol specification                                                | <a href="https://crates.io/crates/graphgarden-protocol"><img alt="GraphGarden Protocol Crates.io Version" src="https://img.shields.io/crates/v/graphgarden-protocol"></a> | [README](./crates/graphgarden-protocol/README.md) |
-| `graphgarden-core`     | Core library — protocol implementation, crawling, and link extraction | <a href="https://crates.io/crates/graphgarden-core"><img alt="GraphGarden Core Crates.io Version" src="https://img.shields.io/crates/v/graphgarden-core"></a>             | [README](./crates/graphgarden-core/README.md)     |
-| `graphgarden`          | CLI — crawl a site and generate its protocol file                     | <a href="https://crates.io/crates/graphgarden"><img alt="GraphGarden Crates.io Version" src="https://img.shields.io/crates/v/graphgarden"></a>                            | [README](./crates/graphgarden/README.md)          |
-| `graphgarden-web`      | Web component — drop-in `<graph-garden>` custom element               | <a href="https://www.npmjs.com/package/graphgarden-web"><img alt="GraphGarden Web npm Version" src="https://img.shields.io/npm/v/graphgarden-web?color=blue"></a>         | [README](./packages/graphgarden-web/README.md)    |
+GraphGarden builds on the work of several open-source projects:
 
-## Fixtures
+- [lol_html](https://github.com/cloudflare/lol-html), the streaming HTML rewriter the CLI reads pages with
+- [graphology](https://graphology.github.io/) and its ForceAtlas2 layout, which hold and arrange the graph in the browser
+- [Sigma.js](https://www.sigmajs.org/) which draws it
 
-The `fixtures/` directory holds end-to-end test sites and a [Vitest](https://vitest.dev/) test suite that exercises the full build pipeline. See the [README](./fixtures/README.md) for details.
+Thank you to everyone who contributes, or would like to. [CONTRIBUTING.md](./CONTRIBUTING.md) is the place to start, and questions are welcome on [Discord](https://discord.com/invite/84pd4QtmzA).
 
-## Aknowledgments
+GraphGarden is dedicated to the indie web and its web rings, which shaped my teenage years, and which am happy to see coming back. Its name and quote honour Frances Hodgson Burnett's _The Secret Garden_, a book I loved as a child.
 
-GraphGarden is an open-source project born from [Bruits](https://bruits.org/), a Rust-focused collective.
+GraphGarden is an open-source project born from [Bruits](https://bruits.org/), a Rust-focused collective 💛

@@ -1,0 +1,6 @@
+---
+cargo/graphgarden-core: minor
+cargo/graphgarden: minor
+---
+
+Changed what users of these packages notice, in one or two sentences.

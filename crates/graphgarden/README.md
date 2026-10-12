@@ -44,4 +44,4 @@ exclude_selectors = ["header", "footer", "nav"]   # CSS selectors whose links ar
 
 ## Development
 
-Refer to [CONTRIBUTING.md](../../CONTRIBUTING.md#graphgarden-cli) for development setup and workflow details.
+Refer to [CONTRIBUTING.md](../../CONTRIBUTING.md#getting-started) for development setup and workflow details.

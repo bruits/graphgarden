@@ -19,4 +19,4 @@ pnpm install && pnpm test
 
 ## Development
 
-Refer to [CONTRIBUTING.md](../CONTRIBUTING.md#e2e-fixtures) for development setup and workflow details.
+Refer to [CONTRIBUTING.md](../CONTRIBUTING.md#getting-started) for development setup and workflow details.

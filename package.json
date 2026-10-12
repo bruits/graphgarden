@@ -4,10 +4,12 @@
 	"scripts": {
 		"fmt": "oxfmt packages/ fixtures/",
 		"fmt:check": "oxfmt --check packages/ fixtures/",
-		"lint": "oxlint --deny-warnings packages/ fixtures/",
-		"typecheck": "pnpm -C packages/graphgarden-web run typecheck",
+		"lint": "oxlint packages/ fixtures/",
+		"typecheck": "pnpm -r run typecheck",
 		"build": "pnpm -C packages/graphgarden-web run build",
-		"test:e2e": "pnpm -C fixtures test"
+		"test:web": "pnpm -C packages/graphgarden-web test",
+		"test:e2e": "pnpm -C fixtures test",
+		"check": "cargo fmt --all -- --check && cargo clippy --all --all-targets -- -D warnings && cargo test --all && pnpm run fmt:check && pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test:web && pnpm run test:e2e"
 	},
 	"devDependencies": {
 		"oxfmt": "^0.72",

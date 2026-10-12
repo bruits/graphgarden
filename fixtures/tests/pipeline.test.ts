@@ -7,7 +7,7 @@ import {
 	isGraphGardenFile,
 	buildGraph,
 	fetchFriendGraphs,
-	GraphGarden,
+	type GraphGarden,
 	DEFAULT_CONFIG,
 	type GraphGardenFile,
 } from "graphgarden-web";
@@ -102,7 +102,7 @@ describe("Bob, served over HTTP", () => {
 				res.end();
 			}
 		});
-		await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+		await new Promise<void>((listening) => server.listen(0, "127.0.0.1", listening));
 		const address = server.address();
 		if (address && typeof address === "object") bobUrl = `http://127.0.0.1:${address.port}/`;
 	});

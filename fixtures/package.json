@@ -3,6 +3,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"typecheck": "tsc --noEmit",
 		"test": "vitest run",
 		"test:watch": "vitest"
 	},
@@ -10,6 +11,7 @@
 		"@types/node": "^24",
 		"graphgarden-web": "workspace:*",
 		"happy-dom": "^20",
+		"typescript": "^7",
 		"vitest": "^5"
 	}
 }

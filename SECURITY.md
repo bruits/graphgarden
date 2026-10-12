@@ -4,10 +4,12 @@
 
 The following versions of our projects are currently supported with security updates:
 
-| Package          | Version | Supported          |
-| ---------------- | ------- | ------------------ |
-| graphgarden      | 0.x.x   | :white_check_mark: |
-| graphgarden-core | 0.x.x   | :white_check_mark: |
+| Package              | Version | Supported          |
+| -------------------- | ------- | ------------------ |
+| graphgarden-protocol | 0.x.x   | :white_check_mark: |
+| graphgarden-core     | 0.x.x   | :white_check_mark: |
+| graphgarden          | 0.x.x   | :white_check_mark: |
+| graphgarden-web      | 0.x.x   | :white_check_mark: |
 
 ## What is a Security Vulnerability?
 

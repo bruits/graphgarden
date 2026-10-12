@@ -4,7 +4,12 @@
 		"module": "ESNext",
 		"moduleResolution": "bundler",
 		"strict": true,
-		"types": ["vitest/globals", "node"]
+		"noEmit": true,
+		"skipLibCheck": true,
+		"types": ["node"],
+		"paths": {
+			"graphgarden-web": ["../packages/graphgarden-web/src/index.ts"]
+		}
 	},
 	"include": ["tests/**/*.ts", "vitest.config.ts"]
 }

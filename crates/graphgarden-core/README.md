@@ -30,4 +30,4 @@ fn main() -> graphgarden_core::Result<()> {
 
 ## Development
 
-Refer to [CONTRIBUTING.md](../../CONTRIBUTING.md#graphgarden-core) for development setup and workflow details.
+Refer to [CONTRIBUTING.md](../../CONTRIBUTING.md#getting-started) for development setup and workflow details.

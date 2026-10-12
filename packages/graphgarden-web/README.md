@@ -78,4 +78,4 @@ Missing, non-numeric or non-positive values fall back to the default.
 
 ## Development
 
-Refer to [CONTRIBUTING.md](../../CONTRIBUTING.md#graphgarden-web-component) for development setup and workflow details.
+Refer to [CONTRIBUTING.md](../../CONTRIBUTING.md#getting-started) for development setup and workflow details.

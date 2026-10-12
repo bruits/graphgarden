@@ -1,0 +1,17 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	// Reserves the name on npm and holds no code
+	"ignorePatterns": ["packages/graphgarden/"],
+	"categories": {
+		"correctness": "error",
+		"suspicious": "error"
+	},
+	"rules": {
+		"typescript/no-explicit-any": "error",
+		"typescript/consistent-type-imports": "error"
+	},
+	"options": {
+		"denyWarnings": true,
+		"reportUnusedDisableDirectives": "error"
+	}
+}

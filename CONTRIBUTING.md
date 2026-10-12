@@ -1,92 +1,46 @@
 # Contributing Guidelines
 
-First, a huge **thank you** for dedicating your time to helping us improve GraphGarden ❤️
-
-> [!Tip]
-> **New to open source?** Check out [https://github.com/firstcontributions/first-contributions](https://github.com/firstcontributions/first-contributions) for helpful information on contributing
-
 ## Philosophy
 
-GraphGarden aims to be a straightforward toolkit with a stable public API and reliable performance: crawl your site, build a link graph, and share it. The goal is to make it easy to create connections between personal sites, highlight projects from collectives, and contribute to a more open and interconnected web.
+GraphGarden turns web rings into explorable node graphs. A site's build is walked into a small public file, `graphgarden.json`, and a web component draws it together with the graphs of the sites it calls friends. The toolkit stays straightforward, with a stable public API and reliable performance, so personal sites and collectives can link up into a more open web.
 
-The protocol is open and decentralised — there is no invitation or acceptance mechanism. Adding someone as a friend pulls their graph into yours, but does not alter theirs. This means you can generate an isolated graph containing only your own site, or act as a bridge between many different communities.
+The protocol is open and decentralised, with no invitation or acceptance step. Adding someone as a friend pulls their graph into yours and leaves theirs untouched. A site can keep an isolated graph of its own pages, or bridge many communities.
 
-We're also committed to fostering a welcoming and respectful community. Any issue, PR, or discussion that violates our [code of conduct](./CODE_OF_CONDUCT.md) will be deleted, and the authors will be **banned**.
+Issues, PRs, and discussions that break the [code of conduct](./CODE_OF_CONDUCT.md) are deleted and their authors banned.
 
 ## Before Opening Issues
 
-- **Do not report security vulnerabilities publicly** (e.g., in issues), please refer to our [security policy](./SECURITY.md).
-- **Do not create issues for questions about using GraphGarden.** Instead, ask on our [Discord](https://discord.com/invite/84pd4QtmzA).
-- **For ideas or feature suggestions**, open a [feature request issue](https://github.com/bruits/graphgarden/issues/new?template=02-feature-request.yml) or chat about it first on [Discord](https://discord.com/invite/84pd4QtmzA).
-- **Check for duplicates.** Look through existing issues to see if your topic has already been addressed.
-- In general, provide as much detail as possible. No worries if it's not perfect, we'll figure it out together.
-
-## Before submitting Pull Requests (PRs)
-
-- **Check for duplicates.** Look through existing PRs to see if your changes have already been submitted.
-- **Check Clippy warnings.** Run `cargo clippy --all --all-targets` to ensure your code adheres to Rust's best practices.
-- **Run formatting.** Run `cargo fmt --all` to ensure your code is properly formatted.
-- **Write and run tests.** If you're adding new functionality or fixing a bug, please include tests to cover it. Run `cargo test --all` to ensure all existing tests pass.
-- Prefer small, focused PRs that address a single issue or feature. Larger PRs can be harder to review, and can often be broken down into smaller, more manageable pieces.
-- PRs don't need to be perfect. Submit your best effort, and we will gladly assist in polishing the work.
+- Report a security vulnerability privately, as the [security policy](./SECURITY.md) explains.
+- Ask questions about using GraphGarden on [Discord](https://discord.com/invite/84pd4QtmzA), and open a [feature request](https://github.com/bruits/graphgarden/issues/new?template=02-feature-request.yml) for an idea.
 
 ## Quality Guidelines
 
-- Prefer self-documenting code first, with expressive names and straightforward logic. Comments should explain *why* (intent, invariants, trade-offs), not *how*. Variable and function names should be clear and descriptive, not cryptic abbreviations. Avoid hidden state and side effects.
-- Tests should assert observable behavior (inputs/outputs, effects), not internal implementation details. Keep tests deterministic and independent of global state.
-- For errors, use typed error enums in library crates (derived with `thiserror`), and `anyhow` in the binary crate (for CLI-level error propagation). Per-crate `pub type Result<T>` aliases for ergonomic signatures. Add context at the boundary (CLI) rather than deep in core, keep library error messages concise.
-- Prefer `?` propagation when possible, and reserve `.expect()`/`.unwrap()` for cases where failure is a programmer bug (e.g. hardcoded regex literals, test helpers).
-- Document any new public APIs, configuration options, or user-facing changes in the relevant README files. If you're unsure where or how to document something, just ask and we'll help you out.
-- We deeply value idiomatic, easy-to-maintain Rust code. Avoid code duplication when possible. And prefer clarity over cleverness, and small focused functions over dark magic.
-- Explicit `use` imports for standard library types (e.g. `use std::collections::HashMap;`).
+- Write self-documenting, idiomatic code, with clear names, plain logic, small functions, and no hidden state or side effects. Avoid duplication. Comments say why (intent, invariants, trade-offs), and never decorate or separate. The formatters and linters in [AGENTS.md](./AGENTS.md) settle style.
+- In Rust, import standard library types explicitly (e.g. `use std::collections::HashSet;`), propagate errors with `?`, and keep `.expect()` and `.unwrap()` for programmer bugs. Library crates have a `thiserror` error enum and a `pub type Result<T>` alias, with concise messages in the core and context added by the CLI through `anyhow`.
+- In TypeScript, stay `strict`-clean with no `any`. Never cast a null check away with `as`, and keep `!` for a programmer bug. Every promise is awaited, returned, or marked `void` with its failure reported. Mark type-only imports with `type`.
+- `graphgarden.json` is a contract. The same site writes the same file apart from `generated_at`, and a change to its shape starts in the [protocol specification](./crates/graphgarden-protocol/README.md).
+- Tests assert observable behaviour, stay deterministic, and share no global state. Rust unit tests sit in their module and the CLI's in `crates/graphgarden/tests/`. Web tests sit beside their module and run with Vitest in happy-dom, faking only what surrounds the unit (e.g. `fetch`, timers, Sigma). New behaviour ships with tests, and touched behaviour gains them.
+- Public APIs, configuration options, and user-facing behaviour are documented in the relevant README.
 
 ## Writing Changesets
 
-Each feature or bug fix that changes the public API or user-facing behavior should be accompanied by a [Sampo](https://github.com/bruits/sampo) changeset.
+[Sampo](https://github.com/bruits/sampo) versions the packages and writes their changelogs from changesets. A change that users of a package meet ships with one. Install Sampo with `cargo install sampo`, then run `sampo add -p cargo/graphgarden-core cargo/graphgarden -b minor -m "Added …"`. Packages are named with their registry, since `graphgarden` exists on both crates.io and npm.
 
-**Structure:**
-1. **Breaking prefix (if applicable):** `**⚠️ breaking change:**`
-2. **Verb:** `Added`, `Removed`, `Fixed`, `Changed`, `Deprecated`, or `Improved`.
-3. **Description**.
-4. **Usage example (optional):** A minimal snippet if it clarifies the change.
+While GraphGarden is 0.x, a feature or a breaking change is a `minor` bump, and a fix a `patch`.
 
-**Description guidelines:** concise (1-2 sentences), specific (mention the command/option/API), actionable (what changed, not why), user-facing (written for changelog readers), and in English. Don't detail internal implementation changes.
+Write one changeset per set of packages and breaking flag, merging related changes, since every listed package's changelog shows the whole text. Internal refactors, tests, and docs need none. The version of `graphgarden-protocol` is the protocol version written into every `graphgarden.json`, so it only moves when the file format does.
+
+A description starts with `Added`, `Removed`, `Fixed`, `Changed`, `Deprecated`, or `Improved`, and says in one or two sentences what changed for users, without the implementation. A breaking change opens with `**⚠️ breaking change:**`.
 
 ## Getting Started
 
-GraphGarden is a polyglot monorepo. The Rust side uses [Cargo workspaces](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) (`crates/`), and the TypeScript side uses [pnpm workspaces](https://pnpm.io/workspaces) (`packages/`). Prerequisites: the latest stable [Rust](https://www.rust-lang.org/) toolchain, plus [Node.js](https://nodejs.org/) (latest LTS) and [pnpm](https://pnpm.io/) for the web component and e2e tests.
+GraphGarden is a polyglot monorepo, with a [Cargo workspace](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) for the Rust crates and a [pnpm workspace](https://pnpm.io/workspaces) for the TypeScript packages and the e2e fixtures. It needs the stable [Rust](https://www.rust-lang.org/) toolchain, [Node.js](https://nodejs.org/) LTS, and [pnpm](https://pnpm.io/) at the version `package.json` pins. Run `pnpm install` once at the root, then the commands in [AGENTS.md](./AGENTS.md). `pnpm run check` runs everything CI checks, in CI order.
 
-
-### GraphGarden Protocol
-
-`graphgarden-protocol` holds the [protocol specification](./crates/graphgarden-protocol/README.md) and versions it independently from the implementation crates. Its Rust library is intentionally minimal — it only exposes a `PROTOCOL_VERSION` constant. Changes to this crate should be rare and carefully considered, as they affect all implementations.
-
-### GraphGarden Core
-
-`graphgarden-core` is the core library that implements the [GraphGarden protocol](./crates/graphgarden-protocol/README.md). It owns the data model, walks a built site's HTML output, extracts links, classifies them, and assembles the public `graphgarden.json` file.
-
-### GraphGarden CLI
-
-`graphgarden` is the CLI built on top of `graphgarden-core`. It provides the user-facing commands to crawl a site and generate its protocol file.
-
-### GraphGarden Web Component
-
-`graphgarden-web` is the `<graph-garden>` custom element that renders an interactive node graph from a site's `graphgarden.json` file. It is bundled with [esbuild](https://esbuild.github.io/) into ESM and IIFE formats so sites can drop it in via `<script>` tag or `npm install`.
-
-```sh
-cd packages/graphgarden-web && pnpm install && pnpm run build
-```
-
-### E2E Fixtures
-
-`fixtures/` contains end-to-end test sites and a [Vitest](https://vitest.dev/) test suite that exercises the full pipeline — Astro build, CLI run, and JSON validation. It includes two fixture sites: Alice (a minimal Astro site processed by the CLI) and Bob (a pre-written static `graphgarden.json` served via a mock HTTP server).
-
-Running the e2e tests requires [Node.js](https://nodejs.org/) and [pnpm](https://pnpm.io/) in addition to Rust:
-
-```sh
-cd fixtures && pnpm install && pnpm test
-```
-
----
-
-Thank you once again for contributing, we deeply appreciate all contributions, no matter how small or big.
+| Path | What it holds |
+| --- | --- |
+| `crates/graphgarden-protocol` | The protocol [specification](./crates/graphgarden-protocol/README.md), versioned on its own, the `PROTOCOL_VERSION` constant, and the [tutorial](./crates/graphgarden-protocol/TUTORIAL.md) |
+| `crates/graphgarden-core` | The data model, link extraction, and the walk that builds `graphgarden.json` |
+| `crates/graphgarden` | The CLI, on top of `graphgarden-core` |
+| `packages/graphgarden-web` | The `<graph-garden>` custom element, bundled with esbuild into ESM and IIFE |
+| `packages/graphgarden` | A placeholder that reserves the name on npm |
+| `fixtures/` | The e2e suite, with Alice, an Astro site the CLI walks, and Bob, a static file served by a mock server |
