@@ -34,10 +34,10 @@ export interface GraphGardenConfig {
 }
 
 export const DEFAULT_CONFIG: GraphGardenConfig = {
-	localNodeColor: "#6366f1",
+	localNodeColor: "#1d8a50",
 	friendNodeColor: "#f59e0b",
 	frontierNodeColor: "#9ca3af",
-	localEdgeColor: "#94a3b8",
+	localEdgeColor: "#6cb38d",
 	friendEdgeColor: "#fbbf24",
 	labelColor: "#334155",
 	labelHaloColor: "#ffffff",

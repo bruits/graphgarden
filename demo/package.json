@@ -1,6 +1,9 @@
 {
 	"name": "graphgarden-website",
 	"private": true,
+	"scripts": {
+		"capture": "cargo run --release && node capture.mjs"
+	},
 	"devDependencies": {
 		"wrangler": "^4.149.0"
 	}

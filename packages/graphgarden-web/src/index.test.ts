@@ -169,7 +169,7 @@ function pointer(type: string) {
 }
 
 function labelData(key: string, label: string | null, tier: string) {
-	return { key, label, tier, x: 100, y: 50, size: 6, color: "#6366f1" };
+	return { key, label, tier, x: 100, y: 50, size: 6, color: "#ff0000" };
 }
 
 afterEach(() => {
@@ -866,7 +866,7 @@ describe("<graph-garden> labels and hover", () => {
 
 		settings.defaultDrawNodeHover(context, labelData(key, label, tier), settings);
 
-		expect(rings).toEqual([{ radius: 9, color: "#6366f1" }]);
+		expect(rings).toEqual([{ radius: 9, color: "#ff0000" }]);
 		expect(texts.map(({ text }) => text)).toEqual(expected);
 		expect(texts[0].alpha).toBe(1);
 	});
@@ -967,9 +967,9 @@ describe("<graph-garden> labels and hover", () => {
 			forceLabel: true,
 			color: DEFAULT_CONFIG.localNodeColor,
 		});
-		expect(display(blog)).toMatchObject({ label: null, color: "rgb(232,232,253)" });
+		expect(display(blog)).toMatchObject({ label: null, color: "rgb(221,237,229)" });
 		expect(edgeColor(LOCAL, about)).toBe(DEFAULT_CONFIG.localEdgeColor);
-		expect(edgeColor(blog, about)).toBe("rgb(239,241,244)");
+		expect(edgeColor(blog, about)).toBe("rgb(233,244,238)");
 
 		renderer.handlers.get("leaveNode")!({ node: LOCAL, event: pointer("mousemove") });
 
@@ -989,8 +989,8 @@ describe("<graph-garden> labels and hover", () => {
 
 		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
 
-		expect(settings.nodeReducer!(blog, graph.getNodeAttributes(blog)).color).toBe("rgb(28,35,72)");
-		expect(settings.edgeReducer!(edge, graph.getEdgeAttributes(edge)).color).toBe("rgb(35,44,63)");
+		expect(settings.nodeReducer!(blog, graph.getNodeAttributes(blog)).color).toBe("rgb(17,40,48)");
+		expect(settings.edgeReducer!(edge, graph.getEdgeAttributes(edge)).color).toBe("rgb(29,46,57)");
 	});
 
 	test("redraws its labels once the page fonts have loaded", async () => {

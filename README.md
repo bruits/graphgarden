@@ -1,4 +1,4 @@
-# GraphGarden
+# <picture><source media="(prefers-color-scheme: dark)" srcset="./.github/assets/logo_dark.svg" /><img alt="" src="./.github/assets/logo.svg" width="36" height="36" /></picture> GraphGarden
 
 > If you look the right way, you can see that the whole world is a garden.
 
@@ -6,7 +6,7 @@ A protocol, and related tools, to turn web rings into explorable node graphs. Re
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./.github/assets/screenshot_dark.webp" />
-  <img alt="The shared garden at garden.bruits.org, its own pages in indigo, linked to the pages of Erika, Goulven, Bruits and Maudit in amber, with grey nodes for links that lead to no known page" src="./.github/assets/screenshot.webp" />
+  <img alt="The shared garden at garden.bruits.org, its own pages in green, linked to the pages of Erika, Goulven, Bruits and Maudit in amber, with grey nodes for links that lead to no known page" src="./.github/assets/screenshot.webp" />
 </picture>
 
 ## Acknowledgements

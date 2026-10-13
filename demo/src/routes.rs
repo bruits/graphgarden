@@ -21,7 +21,7 @@ impl Route for Index {
             html! {
                 graph-garden {}
                 p.legend {
-                    "Indigo nodes are this site's pages, amber ones belong to the sites it gathers "
+                    "Green nodes are this site's pages, amber ones belong to the sites it gathers "
                     "and to their friends, and grey ones are links nobody describes yet. "
                     "Click or tap a node to visit it, and hover it to see its neighbours."
                 }

@@ -2,7 +2,7 @@
 
 Drop-in `<graph-garden>` custom element that renders an interactive node graph from a site's [`graphgarden.json`](../../crates/graphgarden-protocol/README.md) file.
 
-The component fetches the site's protocol file, merges friend graphs, computes a force-directed layout via ForceAtlas2, and renders an interactive visualisation with [Sigma.js](https://www.sigmajs.org/). Local nodes are shown in indigo, friend nodes in amber, and frontier nodes (broken links or unreachable friends) in grey. Edge colours follow the same origin-based scheme. Nodes with more edges than the median node are drawn at 1.5 times `node-size`, and those above the ninth decile at twice, so their labels show from further out. Labels sit under their node in the element's `font-family`, and hovering a node fades all but its neighbours and shows where it leads. Node and edge URLs that are not http or https are ignored, and a friend site that does not answer within 10 seconds is left out.
+The component fetches the site's protocol file, merges friend graphs, computes a force-directed layout via ForceAtlas2, and renders an interactive visualisation with [Sigma.js](https://www.sigmajs.org/). Local nodes are shown in green, friend nodes in amber, and frontier nodes (broken links or unreachable friends) in grey. Edge colours follow the same origin-based scheme. Nodes with more edges than the median node are drawn at 1.5 times `node-size`, and those above the ninth decile at twice, so their labels show from further out. Labels sit under their node in the element's `font-family`, and hovering a node fades all but its neighbours and shows where it leads. Node and edge URLs that are not http or https are ignored, and a friend site that does not answer within 10 seconds is left out.
 
 ## Usage
 
@@ -51,10 +51,10 @@ Override colors via CSS custom properties on the `<graph-garden>` element or any
 
 | Property                   | Default   | Description                                                 |
 | -------------------------- | --------- | ----------------------------------------------------------- |
-| `--gg-local-node-color`    | `#6366f1` | Color of nodes from the local site                          |
+| `--gg-local-node-color`    | `#1d8a50` | Color of nodes from the local site                          |
 | `--gg-friend-node-color`   | `#f59e0b` | Color of nodes from friend sites                            |
 | `--gg-frontier-node-color` | `#9ca3af` | Color of frontier nodes (broken links, unreachable friends) |
-| `--gg-local-edge-color`    | `#94a3b8` | Color of edges between local pages                          |
+| `--gg-local-edge-color`    | `#6cb38d` | Color of edges between local pages                          |
 | `--gg-friend-edge-color`   | `#fbbf24` | Color of edges to friend sites                              |
 | `--gg-label-color`         | `#334155` | Color of node labels                                        |
 | `--gg-label-halo-color`    | `#ffffff` | Color of label outlines, usually the page background        |

@@ -15,6 +15,7 @@ pnpm run typecheck                                 # typecheck the web component
 pnpm run build                                     # build the web component
 pnpm run test:web
 pnpm run test:e2e                                  # build Alice, run the CLI on her, and check the whole pipeline
+pnpm run capture                                   # build the website and retake the README screenshots
 pnpm run check                                     # everything CI checks, in CI order
 ```
 

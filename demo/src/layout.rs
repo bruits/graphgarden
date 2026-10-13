@@ -12,6 +12,7 @@ pub fn layout(title: &str, shape: &str, main: Markup) -> Markup {
                 meta name="viewport" content="width=device-width, initial-scale=1";
                 // Also the page's label in the graph
                 title { (title) }
+                link rel="icon" href="/logo.svg" type="image/svg+xml";
                 @for face in ["Regular", "Italic", "Bold"] {
                     link rel="preload" href=(format!("/fonts/Libron-{face}.woff2")) as="font" type="font/woff2" crossorigin;
                 }
@@ -22,7 +23,10 @@ pub fn layout(title: &str, shape: &str, main: Markup) -> Markup {
             body class=(shape) {
                 div.sheet {
                     header {
-                        a.brand href="/" { "GraphGarden" }
+                        a.brand href="/" {
+                            img src="/logo.svg" alt="";
+                            "GraphGarden"
+                        }
                         nav {
                             a href="/tutorial/" { "Tutorial" }
                             a href="/join/" { "Join" }

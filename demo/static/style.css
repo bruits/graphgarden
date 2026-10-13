@@ -72,6 +72,13 @@ header {
     text-decoration: none;
 }
 
+.brand img {
+    width: 1.2em;
+    height: 1.2em;
+    margin-right: 0.3em;
+    vertical-align: -0.16em;
+}
+
 nav {
     display: flex;
     flex-wrap: wrap;
@@ -167,6 +174,7 @@ graph-garden {
 }
 
 :root[data-capture] .sheet {
+    overflow: hidden;
     border: 1px solid var(--rim);
     border-radius: 18px;
     background: var(--paper);
@@ -177,4 +185,17 @@ graph-garden {
 
 :root[data-capture] .map .sheet {
     height: calc(100vh - 80px);
+}
+
+:root[data-capture] header,
+:root[data-capture] .legend {
+    display: none;
+}
+
+:root[data-capture] .map main {
+    padding: 0;
+}
+
+:root[data-capture] graph-garden {
+    border: 0;
 }

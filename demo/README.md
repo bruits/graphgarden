@@ -25,25 +25,13 @@ The front page reads the participants' files live. These query parameters make i
 
 | Parameter | Effect |
 | --- | --- |
-| `capture` | Reads the participants from the copies in `static/captures/` and frames the page on a transparent background. A participant without a copy shows only as an unlabelled grey node, from the Join page's link to it |
+| `capture` | Reads the participants from the copies in `static/captures/` and shows the map alone, without the header or the legend, on a framed sheet over a transparent background. A participant without a copy shows only as an unlabelled grey node, from the Join page's link to it |
 | `seed=N` | Seeds the layout, with `capture` (default 1) |
 | `theme=light` or `theme=dark` | Forces a colour scheme |
 
-With `dist/` served on port 8000 as above, headless Chrome takes the README screenshots in both themes. Set `CHROME` to your browser binary.
+`pnpm run capture`, from the repository root, builds the component and the site, then takes the README screenshots in both themes with headless Chrome and writes them to `.github/assets/` with `cwebp`. It needs Chrome and `cwebp` installed. Set `CHROME` to the browser binary when it is not at the macOS default (`google-chrome` elsewhere), and pass a seed to try another layout, e.g. `pnpm run capture 12`.
 
-```sh
-CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" # google-chrome or chromium on Linux
-for theme in light dark; do
-  "$CHROME" --headless=new --use-angle=swiftshader --enable-unsafe-swiftshader --hide-scrollbars \
-    --default-background-color=00000000 --window-size=1200,800 --force-device-scale-factor=2 \
-    --virtual-time-budget=8000 --screenshot="/tmp/graphgarden-$theme.png" \
-    "http://localhost:8000/?capture&theme=$theme&seed=9"
-done
-cwebp -q 90 -alpha_q 100 /tmp/graphgarden-light.png -o ../.github/assets/screenshot.webp
-cwebp -q 90 -alpha_q 100 /tmp/graphgarden-dark.png -o ../.github/assets/screenshot_dark.webp
-```
-
-To add or refresh a copy, fetch the participant's file, e.g. `curl -o static/captures/erika.florist.json https://erika.florist/.well-known/graphgarden.json`. A new copy changes the layout, so pick the seed again.
+To add or refresh a copy, fetch the participant's file, e.g. `curl -o static/captures/erika.florist.json https://erika.florist/.well-known/graphgarden.json`. A new copy changes the layout, so compare a few seeds and set the one with the fewest label overlaps as the default in `capture.mjs`.
 
 ## Font
 

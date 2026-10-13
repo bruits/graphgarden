@@ -9,6 +9,7 @@
 		"build": "pnpm -C packages/graphgarden-web run build",
 		"test:web": "pnpm -C packages/graphgarden-web test",
 		"test:e2e": "pnpm -C fixtures test",
+		"capture": "pnpm run build && pnpm -C demo run capture",
 		"check": "cargo fmt --all -- --check && cargo clippy --all --all-targets -- -D warnings && cargo test --all && pnpm run fmt:check && pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test:web && pnpm run test:e2e"
 	},
 	"devDependencies": {
