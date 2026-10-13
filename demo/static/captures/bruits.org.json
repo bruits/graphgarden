@@ -1,0 +1,32 @@
+{
+  "version": "0.1.0",
+  "generated_at": "2026-10-08T10:52:21Z",
+  "base_url": "https://bruits.org/",
+  "site": {
+    "title": "Bruits",
+    "description": "Software and game development collective",
+    "language": "en"
+  },
+  "nodes": [
+    {
+      "url": "/chat/",
+      "title": "Redirecting to Discord…"
+    },
+    {
+      "url": "/",
+      "title": "Bruits"
+    }
+  ],
+  "edges": [
+    {
+      "source": "/",
+      "target": "https://erika.florist/",
+      "type": "friend"
+    },
+    {
+      "source": "/",
+      "target": "https://goulven-clech.dev/",
+      "type": "friend"
+    }
+  ]
+}

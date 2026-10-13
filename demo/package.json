@@ -1,0 +1,7 @@
+{
+	"name": "graphgarden-website",
+	"private": true,
+	"devDependencies": {
+		"wrangler": "^4.149.0"
+	}
+}

@@ -2,6 +2,9 @@ packages:
   - packages/*
   - fixtures
   - fixtures/alice
+  - demo
 
 allowBuilds:
   esbuild: true
+  # Wrangler only deploys static assets, which needs no local workerd runtime
+  workerd: false

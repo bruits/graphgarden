@@ -1,0 +1,13 @@
+# To join, add your site's origin to `friends` in a pull request, as https://garden.bruits.org/join/ explains.
+friends = [
+    "https://bruits.org/",
+    "https://erika.florist/",
+    "https://goulven-clech.dev/",
+    "https://maudit.org/",
+]
+
+[site]
+base_url = "https://garden.bruits.org/"
+title = "GraphGarden"
+description = "The shared garden of GraphGarden sites"
+language = "en"

@@ -1,0 +1,329 @@
+{
+  "version": "0.2.0",
+  "generated_at": "2026-08-23T17:35:44Z",
+  "base_url": "https://maudit.org/",
+  "site": {
+    "title": "Maudit",
+    "description": "A Rust library for building static websites",
+    "language": "en"
+  },
+  "friends": [
+    "https://erika.florist/",
+    "https://goulven-clech.dev/",
+    "https://bruits.org/"
+  ],
+  "nodes": [
+    {
+      "url": "/news/maudit-library/",
+      "title": "The court's library, not its king - Maudit"
+    },
+    {
+      "url": "/news/",
+      "title": "News - Maudit"
+    },
+    {
+      "url": "/news/maudit-compile-time/",
+      "title": "Maudit is faster than most other static website generators, but - Maudit"
+    },
+    {
+      "url": "/news/for-static-websites/",
+      "title": "The still scrolls of the web, unchanging and steadfast, at last! - Maudit"
+    },
+    {
+      "url": "/news/2026-in-the-cursed-lands/",
+      "title": "What's new in Maudit and what's coming in 2026 - Maudit"
+    },
+    {
+      "url": "/news/maudit01/",
+      "title": "Introducing Maudit - Maudit"
+    },
+    {
+      "url": "/docs/images/",
+      "title": "Images - Documentation - Maudit"
+    },
+    {
+      "url": "/docs/templating/",
+      "title": "Templating - Documentation - Maudit"
+    },
+    {
+      "url": "/docs/content/",
+      "title": "Content - Documentation - Maudit"
+    },
+    {
+      "url": "/docs/quick-start/",
+      "title": "Quick Start - Documentation - Maudit"
+    },
+    {
+      "url": "/docs/manual-install/",
+      "title": "Manual installation - Documentation - Maudit"
+    },
+    {
+      "url": "/docs/javascript/",
+      "title": "Scripts - Documentation - Maudit"
+    },
+    {
+      "url": "/docs/",
+      "title": "Documentation - Maudit"
+    },
+    {
+      "url": "/docs/performance/",
+      "title": "Performance - Documentation - Maudit"
+    },
+    {
+      "url": "/docs/routing/",
+      "title": "Routing - Documentation - Maudit"
+    },
+    {
+      "url": "/docs/prefetching/",
+      "title": "Prefetching - Documentation - Maudit"
+    },
+    {
+      "url": "/docs/entrypoint/",
+      "title": "Entrypoint - Documentation - Maudit"
+    },
+    {
+      "url": "/docs/index/",
+      "title": "Prologue - Documentation - Maudit"
+    },
+    {
+      "url": "/docs/philosophy/",
+      "title": "Philosophy - Documentation - Maudit"
+    },
+    {
+      "url": "/docs/styling/",
+      "title": "Styling - Documentation - Maudit"
+    },
+    {
+      "url": "/docs/library/",
+      "title": "Maudit as a library - Documentation - Maudit"
+    },
+    {
+      "url": "/docs/installation/",
+      "title": "Installation - Documentation - Maudit"
+    },
+    {
+      "url": "/",
+      "title": "Maudit"
+    },
+    {
+      "url": "/chat/",
+      "title": "/chat/"
+    },
+    {
+      "url": "/contribute/",
+      "title": "Contribute to Maudit - Maudit"
+    }
+  ],
+  "edges": [
+    {
+      "source": "/news/maudit-library/",
+      "target": "/docs/library/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/maudit-library/",
+      "target": "/docs/entrypoint/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/maudit-library/",
+      "target": "/docs/content/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/maudit-library/",
+      "target": "/chat/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/",
+      "target": "/news/for-static-websites/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/",
+      "target": "/news/2026-in-the-cursed-lands/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/",
+      "target": "/news/maudit-library/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/",
+      "target": "/news/maudit-compile-time/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/",
+      "target": "/news/maudit01/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/maudit-compile-time/",
+      "target": "/docs/routing/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/for-static-websites/",
+      "target": "/news/maudit-library/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/2026-in-the-cursed-lands/",
+      "target": "/docs/quick-start/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/2026-in-the-cursed-lands/",
+      "target": "/docs/images/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/2026-in-the-cursed-lands/",
+      "target": "/docs/content/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/2026-in-the-cursed-lands/",
+      "target": "/docs/entrypoint/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/2026-in-the-cursed-lands/",
+      "target": "/docs/routing/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/2026-in-the-cursed-lands/",
+      "target": "/docs/prefetching/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/maudit01/",
+      "target": "https://bruits.org/",
+      "type": "friend"
+    },
+    {
+      "source": "/news/maudit01/",
+      "target": "/docs/quick-start/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/maudit01/",
+      "target": "/docs/philosophy/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/maudit01/",
+      "target": "/chat/",
+      "type": "internal"
+    },
+    {
+      "source": "/news/maudit01/",
+      "target": "/docs/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/images/",
+      "target": "/docs/content/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/quick-start/",
+      "target": "/docs/content/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/manual-install/",
+      "target": "/docs/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/",
+      "target": "/docs/philosophy/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/routing/",
+      "target": "/docs/entrypoint/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/routing/",
+      "target": "/docs/templating/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/entrypoint/",
+      "target": "/docs/routing/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/entrypoint/",
+      "target": "/docs/content/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/index/",
+      "target": "/docs/philosophy/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/philosophy/",
+      "target": "/news/for-static-websites/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/philosophy/",
+      "target": "/news/maudit-compile-time/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/philosophy/",
+      "target": "/news/maudit-library/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/library/",
+      "target": "/docs/philosophy/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/library/",
+      "target": "/docs/entrypoint/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/library/",
+      "target": "/docs/content/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/library/",
+      "target": "/docs/routing/",
+      "type": "internal"
+    },
+    {
+      "source": "/docs/installation/",
+      "target": "/docs/manual-install",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/docs/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/docs/philosophy/",
+      "type": "internal"
+    },
+    {
+      "source": "/contribute/",
+      "target": "/chat",
+      "type": "internal"
+    }
+  ]
+}

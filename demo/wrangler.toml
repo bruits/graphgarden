@@ -1,0 +1,6 @@
+name = "graphgarden-website"
+compatibility_date = "2026-10-01"
+routes = [{ pattern = "garden.bruits.org", custom_domain = true }]
+
+[assets]
+directory = "./dist"

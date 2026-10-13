@@ -38,9 +38,10 @@ GraphGarden is a polyglot monorepo, with a [Cargo workspace](https://doc.rust-la
 
 | Path | What it holds |
 | --- | --- |
-| `crates/graphgarden-protocol` | The protocol [specification](./crates/graphgarden-protocol/README.md), versioned on its own, the `PROTOCOL_VERSION` constant, and the [tutorial](./crates/graphgarden-protocol/TUTORIAL.md) |
+| `crates/graphgarden-protocol` | The protocol [specification](./crates/graphgarden-protocol/README.md), versioned on its own, and the `PROTOCOL_VERSION` constant |
 | `crates/graphgarden-core` | The data model, link extraction, and the walk that builds `graphgarden.json` |
 | `crates/graphgarden` | The CLI, on top of `graphgarden-core` |
 | `packages/graphgarden-web` | The `<graph-garden>` custom element, bundled with esbuild into ESM and IIFE |
 | `packages/graphgarden` | A placeholder that reserves the name on npm |
 | `fixtures/` | The e2e suite, with Alice, an Astro site the CLI walks, and Bob, a static file served by a mock server |
+| `demo/` | The [Maudit](https://maudit.org/) site behind [garden.bruits.org](https://garden.bruits.org/), with the shared garden, the tutorial, and the README screenshots, in its own Cargo workspace and deployed by its own workflow |

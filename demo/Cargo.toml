@@ -1,0 +1,16 @@
+[package]
+name = "graphgarden-demo"
+version = "0.0.0"
+description = "Demo site for GraphGarden, built with Maudit"
+edition = "2024"
+license = "MIT"
+publish = false
+
+# Kept out of the repository workspace, so CI does not compile Maudit
+[workspace]
+
+[dependencies]
+graphgarden-core = { path = "../crates/graphgarden-core" }
+maud = "0.27.0"
+# Cargo.lock starts from Maudit's own, as this release does not build against a newer rolldown
+maudit = "0.12.1"

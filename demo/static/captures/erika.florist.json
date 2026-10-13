@@ -1,0 +1,1073 @@
+{
+  "version": "0.2.0",
+  "generated_at": "2026-10-12T04:34:39Z",
+  "base_url": "https://erika.florist/",
+  "site": {
+    "title": "erika.florist",
+    "description": "Erika's personal website",
+    "language": "en"
+  },
+  "friends": [
+    "https://goulven-clech.dev/",
+    "https://aureliendossantos.com/",
+    "https://bruits.org/",
+    "https://maudit.org/"
+  ],
+  "nodes": [
+    {
+      "url": "/articles/moonlander-review/",
+      "title": "Moonlander Mark 1 review"
+    },
+    {
+      "url": "/articles/3ds/",
+      "title": "Is the 3DS good in 2025?"
+    },
+    {
+      "url": "/articles/gamifyingmedia/",
+      "title": "On gamifying art"
+    },
+    {
+      "url": "/articles/dontunderestimateeditorintegration/",
+      "title": "Don't underestimate the power of editor tooling"
+    },
+    {
+      "url": "/articles/gooderrors/",
+      "title": "What's in a good error"
+    },
+    {
+      "url": "/articles/youshouldtypeyourconfigfiles/",
+      "title": "Your config files should be typechecked"
+    },
+    {
+      "url": "/articles/sinarun-full-release/",
+      "title": "SinaRun is now out!"
+    },
+    {
+      "url": "/articles/on-feedback/",
+      "title": "Receiving and understanding feedback"
+    },
+    {
+      "url": "/articles/2023work/",
+      "title": "Things I've worked on at Astro in 2023"
+    },
+    {
+      "url": "/articles/back-to-linux-2025/",
+      "title": "Back to Linux after a few years of sipping cappuccinos in SF"
+    },
+    {
+      "url": "/articles/reading-ruler/",
+      "title": "My one ruler for reading books"
+    },
+    {
+      "url": "/articles/eleventy-painpoints/",
+      "title": "Eleventy pain points"
+    },
+    {
+      "url": "/articles/",
+      "title": "Articles"
+    },
+    {
+      "url": "/articles/introducing-maudit/",
+      "title": "Introducing Maudit"
+    },
+    {
+      "url": "/articles/sinarun-post-mortem/",
+      "title": "SinaRun Postmortem"
+    },
+    {
+      "url": "/articles/kvm-at-home/",
+      "title": "Controlling your screens through DDC by building a KVM at home"
+    },
+    {
+      "url": "/articles/sinarun-is-now-available/",
+      "title": "SinaRun is now available!"
+    },
+    {
+      "url": "/articles/anticipated-rust/",
+      "title": "Features I'm looking forward to in Rust"
+    },
+    {
+      "url": "/scratchmap/",
+      "title": "Scratch map"
+    },
+    {
+      "url": "/",
+      "title": "Erika"
+    },
+    {
+      "url": "/changelog/",
+      "title": "Changelog"
+    },
+    {
+      "url": "/friends/",
+      "title": "Friends"
+    },
+    {
+      "url": "/wiki/games/modsforplayingasawoman/",
+      "title": "Mods for playing as a woman"
+    },
+    {
+      "url": "/wiki/games/melee/",
+      "title": "Melee"
+    },
+    {
+      "url": "/wiki/computers/thingsidontwanttoworkwith/",
+      "title": "Things I don't want to work with anymore"
+    },
+    {
+      "url": "/wiki/computers/dailyannoyances/",
+      "title": "Daily annoyances"
+    },
+    {
+      "url": "/wiki/computers/vscodepico8/",
+      "title": "Using VS Code with PICO-8"
+    },
+    {
+      "url": "/wiki/computers/keyboardshortcuts/",
+      "title": "Keyboard shortcuts to improve your life"
+    },
+    {
+      "url": "/wiki/computers/macos-key-forwarding/",
+      "title": "Setting up key forwarding on macOS"
+    },
+    {
+      "url": "/wiki/computers/vscodesetup/",
+      "title": "My VS Code setup"
+    },
+    {
+      "url": "/wiki/computers/zed-wishlist/",
+      "title": "Zed Wishlist"
+    },
+    {
+      "url": "/wiki/computers/terminalworkflow/",
+      "title": "Terminal Workflow"
+    },
+    {
+      "url": "/wiki/computers/macosusefulsoftwares/",
+      "title": "Useful softwares for macOS"
+    },
+    {
+      "url": "/wiki/",
+      "title": "Welcome to my wiki!"
+    },
+    {
+      "url": "/wiki/floristry/intro/",
+      "title": "Why floristry?"
+    },
+    {
+      "url": "/wiki/floristry/flowerreadings/",
+      "title": "Recommended readings for aspiring florists"
+    },
+    {
+      "url": "/wiki/linux/filepickertragedy/",
+      "title": "The great Linux file pickers tragedy"
+    },
+    {
+      "url": "/wiki/linux/shellperformance/",
+      "title": "Performance tips and tricks for Fish Shell"
+    },
+    {
+      "url": "/wiki/linux/archlinux/",
+      "title": "Why I use Arch Linux"
+    },
+    {
+      "url": "/wiki/linux/swedishkeyboard/",
+      "title": "Swedish characters w/ a French Canadian layout"
+    },
+    {
+      "url": "/wiki/linux/kdearchlinux/",
+      "title": "Installing the KDE file picker on Arch Linux"
+    },
+    {
+      "url": "/wiki/linux/niri/",
+      "title": "Niri tips, tricks and tweaks"
+    },
+    {
+      "url": "/wiki/linux/waylandstatus/",
+      "title": "Experience with Wayland on my setup"
+    },
+    {
+      "url": "/catalogue/stats/",
+      "title": "Catalogue stats"
+    },
+    {
+      "url": "/catalogue/collections/mcu/",
+      "title": "Marvel Cinematic Universe"
+    },
+    {
+      "url": "/catalogue/collections/mario-marathon/",
+      "title": "Mario Marathon"
+    },
+    {
+      "url": "/catalogue/collections/studio-ghibli/",
+      "title": "Studio Ghibli"
+    },
+    {
+      "url": "/catalogue/collections/lord-of-the-rings/",
+      "title": "Lord of the Rings"
+    },
+    {
+      "url": "/catalogue/collections/need-for-speed/",
+      "title": "Need for Speed"
+    },
+    {
+      "url": "/catalogue/collections/bayonetta/",
+      "title": "Bayonetta"
+    },
+    {
+      "url": "/catalogue/collections/rachel-weisz/",
+      "title": "Rachel Weisz"
+    },
+    {
+      "url": "/catalogue/collections/castlevania/",
+      "title": "Castlevania"
+    },
+    {
+      "url": "/catalogue/collections/discworld/",
+      "title": "Discworld"
+    },
+    {
+      "url": "/catalogue/collections/",
+      "title": "Collections"
+    },
+    {
+      "url": "/catalogue/collections/favorite-of-each-type/",
+      "title": "Favorite of each type"
+    },
+    {
+      "url": "/catalogue/collections/games-everyone-should-play/",
+      "title": "Games Everyone Should Play"
+    },
+    {
+      "url": "/catalogue/collections/fromsoftware/",
+      "title": "FromSoftware"
+    },
+    {
+      "url": "/catalogue/collections/movies-everyone-should-watch/",
+      "title": "Movies Everyone Should Watch in Their Life"
+    },
+    {
+      "url": "/catalogue/collections/locked-tomb/",
+      "title": "The Locked Tomb"
+    },
+    {
+      "url": "/catalogue/collections/pokemon/",
+      "title": "Pokémon"
+    },
+    {
+      "url": "/catalogue/collections/sniper-elite/",
+      "title": "Sniper Elite"
+    },
+    {
+      "url": "/catalogue/collections/devil-may-cry/",
+      "title": "Devil May Cry"
+    },
+    {
+      "url": "/catalogue/collections/star-wars/",
+      "title": "Star Wars"
+    },
+    {
+      "url": "/catalogue/collections/zelda/",
+      "title": "The Legend of Zelda"
+    },
+    {
+      "url": "/catalogue/collections/mass-effect/",
+      "title": "Mass Effect"
+    },
+    {
+      "url": "/catalogue/collections/touhou/",
+      "title": "Touhou"
+    },
+    {
+      "url": "/catalogue/",
+      "title": "Catalogue"
+    },
+    {
+      "url": "/about/",
+      "title": "About"
+    },
+    {
+      "url": "/projects/",
+      "title": "Projects"
+    },
+    {
+      "url": "/projects/fairedesjeux/",
+      "title": "fairedesjeux.fr"
+    },
+    {
+      "url": "/projects/sinarun/",
+      "title": "SinaRun"
+    },
+    {
+      "url": "/projects/wiki.fairedesjeux/",
+      "title": "wiki.fairedesjeux.fr"
+    }
+  ],
+  "edges": [
+    {
+      "source": "/articles/gamifyingmedia/",
+      "target": "/catalogue/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/gooderrors/",
+      "target": "/articles/dontunderestimateeditorintegration/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/2023work/",
+      "target": "/articles/gooderrors/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/2023work/",
+      "target": "/articles/dontunderestimateeditorintegration/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/reading-ruler/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/kvm-at-home/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/back-to-linux-2025/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/sinarun-post-mortem/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/sinarun-full-release/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/introducing-maudit/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/anticipated-rust/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/3ds/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/on-feedback/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/gamifyingmedia/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/2023work/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/gooderrors/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/dontunderestimateeditorintegration/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/youshouldtypeyourconfigfiles/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/moonlander-review/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/eleventy-painpoints/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/",
+      "target": "/articles/sinarun-is-now-available/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/introducing-maudit/",
+      "target": "https://maudit.org/news/maudit01/",
+      "type": "friend"
+    },
+    {
+      "source": "/articles/introducing-maudit/",
+      "target": "https://maudit.org/docs/philosophy/",
+      "type": "friend"
+    },
+    {
+      "source": "/articles/introducing-maudit/",
+      "target": "https://maudit.org/docs/entrypoint/",
+      "type": "friend"
+    },
+    {
+      "source": "/articles/introducing-maudit/",
+      "target": "https://maudit.org/docs/library/",
+      "type": "friend"
+    },
+    {
+      "source": "/articles/introducing-maudit/",
+      "target": "https://maudit.org/news/maudit-compile-time/",
+      "type": "friend"
+    },
+    {
+      "source": "/articles/introducing-maudit/",
+      "target": "https://maudit.org",
+      "type": "friend"
+    },
+    {
+      "source": "/articles/introducing-maudit/",
+      "target": "https://maudit.org/chat/",
+      "type": "friend"
+    },
+    {
+      "source": "/articles/sinarun-post-mortem/",
+      "target": "/articles/sinarun-full-release/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/sinarun-post-mortem/",
+      "target": "/articles/on-feedback/",
+      "type": "internal"
+    },
+    {
+      "source": "/articles/kvm-at-home/",
+      "target": "/articles/moonlander-review/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/reading-ruler/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/computers/macos-key-forwarding/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/linux/archlinux/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/linux/filepickertragedy/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/computers/terminalworkflow/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/floristry/intro/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/computers/keyboardshortcuts/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/kvm-at-home/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/computers/zed-wishlist/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/linux/waylandstatus/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/linux/niri/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/computers/vscodesetup/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/back-to-linux-2025/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/linux/shellperformance/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/sinarun-post-mortem/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/sinarun-full-release/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/introducing-maudit/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/anticipated-rust/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/3ds/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/on-feedback/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/gamifyingmedia/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/2023work/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/floristry/flowerreadings/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/computers/macosusefulsoftwares/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/computers/vscodepico8/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/gooderrors/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/computers/dailyannoyances/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/linux/kdearchlinux/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/linux/swedishkeyboard/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/computers/thingsidontwanttoworkwith/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/dontunderestimateeditorintegration/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/youshouldtypeyourconfigfiles/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/games/modsforplayingasawoman/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/wiki/games/melee/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/moonlander-review/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/eleventy-painpoints/",
+      "type": "internal"
+    },
+    {
+      "source": "/",
+      "target": "/articles/sinarun-is-now-available/",
+      "type": "internal"
+    },
+    {
+      "source": "/wiki/computers/keyboardshortcuts/",
+      "target": "/wiki/computers/vscodesetup/",
+      "type": "internal"
+    },
+    {
+      "source": "/wiki/computers/keyboardshortcuts/",
+      "target": "/articles/moonlander-review/",
+      "type": "internal"
+    },
+    {
+      "source": "/wiki/computers/macos-key-forwarding/",
+      "target": "/wiki/linux/swedishkeyboard/",
+      "type": "internal"
+    },
+    {
+      "source": "/wiki/",
+      "target": "/articles/",
+      "type": "internal"
+    },
+    {
+      "source": "/wiki/floristry/intro/",
+      "target": "/wiki/floristry/flowerreadings/",
+      "type": "internal"
+    },
+    {
+      "source": "/wiki/linux/filepickertragedy/",
+      "target": "/wiki/linux/kdearchlinux/",
+      "type": "internal"
+    },
+    {
+      "source": "/wiki/linux/archlinux/",
+      "target": "/wiki/floristry/intro/",
+      "type": "internal"
+    },
+    {
+      "source": "/wiki/linux/waylandstatus/",
+      "target": "/articles/back-to-linux-2025/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/stats/",
+      "target": "/catalogue/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/stats/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/mcu/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/mcu/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/mario-marathon/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/mario-marathon/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/mario-marathon/",
+      "target": "https://goulven-clech.dev/catalogue/todo/",
+      "type": "friend"
+    },
+    {
+      "source": "/catalogue/collections/studio-ghibli/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/studio-ghibli/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/lord-of-the-rings/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/lord-of-the-rings/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/need-for-speed/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/need-for-speed/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/bayonetta/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/bayonetta/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/rachel-weisz/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/rachel-weisz/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/castlevania/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/castlevania/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/discworld/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/discworld/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/games-everyone-should-play/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/movies-everyone-should-watch/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/rachel-weisz/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/mario-marathon/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/sniper-elite/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/lord-of-the-rings/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/mcu/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/discworld/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/castlevania/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/zelda/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/studio-ghibli/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/bayonetta/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/need-for-speed/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/touhou/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/pokemon/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/star-wars/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/fromsoftware/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/devil-may-cry/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/mass-effect/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/locked-tomb/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/",
+      "target": "/catalogue/collections/favorite-of-each-type/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/favorite-of-each-type/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/favorite-of-each-type/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/games-everyone-should-play/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/games-everyone-should-play/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/fromsoftware/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/fromsoftware/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/movies-everyone-should-watch/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/movies-everyone-should-watch/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/locked-tomb/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/locked-tomb/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/pokemon/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/pokemon/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/sniper-elite/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/sniper-elite/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/devil-may-cry/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/devil-may-cry/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/star-wars/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/star-wars/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/zelda/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/zelda/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/mass-effect/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/mass-effect/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/touhou/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/collections/touhou/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/",
+      "target": "/catalogue/collections/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/",
+      "target": "/catalogue/stats/",
+      "type": "internal"
+    },
+    {
+      "source": "/about/",
+      "target": "/articles/kvm-at-home/",
+      "type": "internal"
+    },
+    {
+      "source": "/about/",
+      "target": "/articles/moonlander-review/",
+      "type": "internal"
+    },
+    {
+      "source": "/projects/",
+      "target": "https://maudit.org",
+      "type": "friend"
+    },
+    {
+      "source": "/projects/",
+      "target": "/projects/sinarun/",
+      "type": "internal"
+    },
+    {
+      "source": "/projects/",
+      "target": "/projects/fairedesjeux/",
+      "type": "internal"
+    },
+    {
+      "source": "/projects/",
+      "target": "/projects/wiki.fairedesjeux/",
+      "type": "internal"
+    },
+    {
+      "source": "/projects/",
+      "target": "/",
+      "type": "internal"
+    }
+  ]
+}

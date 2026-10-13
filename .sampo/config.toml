@@ -14,5 +14,5 @@ version = 1
 [packages]
 # Options for package discovery and filtering.
 # ignore_unpublished = false (default)
-# Fixture sites are workspace members for the e2e suite and never released
-ignore = ["fixtures", "fixtures/*"]
+# Fixture sites and the demo site are workspace members and never released
+ignore = ["fixtures", "fixtures/*", "demo"]

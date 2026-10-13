@@ -1,0 +1,355 @@
+{
+  "version": "0.2.0",
+  "generated_at": "2026-10-11T05:33:50.286Z",
+  "base_url": "https://goulven-clech.dev/",
+  "site": {
+    "title": "Goulven CLEC'H",
+    "description": "I'm a software developer based in Toulouse, France. Welcome to my personal website!",
+    "language": "en"
+  },
+  "friends": [
+    "https://aureliendossantos.com",
+    "https://erika.florist",
+    "https://bruits.org"
+  ],
+  "nodes": [
+    {
+      "url": "/",
+      "title": "Home"
+    },
+    {
+      "url": "/about",
+      "title": "About"
+    },
+    {
+      "url": "/resume",
+      "title": "Resume"
+    },
+    {
+      "url": "/catalogue",
+      "title": "Catalogue"
+    },
+    {
+      "url": "/catalogue/wrapped",
+      "title": "Wrapped"
+    },
+    {
+      "url": "/catalogue/todo",
+      "title": "To-do"
+    },
+    {
+      "url": "/?year=2020",
+      "title": "2020"
+    },
+    {
+      "url": "/?year=2023",
+      "title": "2023"
+    },
+    {
+      "url": "/?year=2024",
+      "title": "2024"
+    },
+    {
+      "url": "/?year=2025",
+      "title": "2025"
+    },
+    {
+      "url": "/?year=2026",
+      "title": "2026"
+    },
+    {
+      "url": "/2020/arch-linux",
+      "title": "My experience with Arch Linux"
+    },
+    {
+      "url": "/2023/discovering-coffee-toulouse",
+      "title": "Discovering coffee in Toulouse"
+    },
+    {
+      "url": "/2023/launching-blog-astro",
+      "title": "Launching a blog with Astro"
+    },
+    {
+      "url": "/2024/elixir-folder-structure",
+      "title": "Directory structure with Elixir"
+    },
+    {
+      "url": "/2024/video-games-ecology",
+      "title": "Video games and ecology"
+    },
+    {
+      "url": "/2025/catalogue-astro-turso",
+      "title": "Media catalogue with Astro and Turso"
+    },
+    {
+      "url": "/2025/elixir-crm-behaviours",
+      "title": "Bridging industry-specific CRMs"
+    },
+    {
+      "url": "/2025/five-years",
+      "title": "Five years in production"
+    },
+    {
+      "url": "/2025/introducing-sampo",
+      "title": "Introducing Sampo"
+    },
+    {
+      "url": "/2026/ai-agents",
+      "title": "Thoughts on AI agents"
+    },
+    {
+      "url": "/2026/coffee-peachy",
+      "title": "How can coffee taste peachy?"
+    },
+    {
+      "url": "/2026/remote-slo",
+      "title": "Service-level objectives at Remote"
+    },
+    {
+      "url": "/catalogue/wrapped/2025",
+      "title": "Wrapped 2025"
+    }
+  ],
+  "edges": [
+    {
+      "source": "/about",
+      "target": "/",
+      "type": "internal"
+    },
+    {
+      "source": "/resume",
+      "target": "/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue",
+      "target": "/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/wrapped",
+      "target": "/catalogue",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/todo",
+      "target": "/catalogue",
+      "type": "internal"
+    },
+    {
+      "source": "/?year=2020",
+      "target": "/",
+      "type": "internal"
+    },
+    {
+      "source": "/?year=2023",
+      "target": "/",
+      "type": "internal"
+    },
+    {
+      "source": "/?year=2024",
+      "target": "/",
+      "type": "internal"
+    },
+    {
+      "source": "/?year=2025",
+      "target": "/",
+      "type": "internal"
+    },
+    {
+      "source": "/?year=2026",
+      "target": "/",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/wrapped/2025",
+      "target": "/catalogue/wrapped",
+      "type": "internal"
+    },
+    {
+      "source": "/2020/arch-linux",
+      "target": "/?year=2020",
+      "type": "internal"
+    },
+    {
+      "source": "/2023/discovering-coffee-toulouse",
+      "target": "/?year=2023",
+      "type": "internal"
+    },
+    {
+      "source": "/2023/launching-blog-astro",
+      "target": "/?year=2023",
+      "type": "internal"
+    },
+    {
+      "source": "/2023/launching-blog-astro",
+      "target": "https://erika.florist/articles/dontunderestimateeditorintegration",
+      "type": "friend"
+    },
+    {
+      "source": "/2024/elixir-folder-structure",
+      "target": "/?year=2024",
+      "type": "internal"
+    },
+    {
+      "source": "/2024/video-games-ecology",
+      "target": "/?year=2024",
+      "type": "internal"
+    },
+    {
+      "source": "/2025/catalogue-astro-turso",
+      "target": "/?year=2025",
+      "type": "internal"
+    },
+    {
+      "source": "/2025/catalogue-astro-turso",
+      "target": "/2025/elixir-crm-behaviours",
+      "type": "internal"
+    },
+    {
+      "source": "/2025/catalogue-astro-turso",
+      "target": "https://erika.florist/catalogue/",
+      "type": "friend"
+    },
+    {
+      "source": "/2025/catalogue-astro-turso",
+      "target": "/2023/launching-blog-astro",
+      "type": "internal"
+    },
+    {
+      "source": "/2025/catalogue-astro-turso",
+      "target": "/catalogue",
+      "type": "internal"
+    },
+    {
+      "source": "/2025/elixir-crm-behaviours",
+      "target": "/?year=2025",
+      "type": "internal"
+    },
+    {
+      "source": "/2025/elixir-crm-behaviours",
+      "target": "/2024/elixir-folder-structure",
+      "type": "internal"
+    },
+    {
+      "source": "/2025/five-years",
+      "target": "/?year=2025",
+      "type": "internal"
+    },
+    {
+      "source": "/2025/five-years",
+      "target": "/2025/elixir-crm-behaviours",
+      "type": "internal"
+    },
+    {
+      "source": "/2025/five-years",
+      "target": "/2024/elixir-folder-structure",
+      "type": "internal"
+    },
+    {
+      "source": "/2025/five-years",
+      "target": "/2023/discovering-coffee-toulouse",
+      "type": "internal"
+    },
+    {
+      "source": "/2025/five-years",
+      "target": "/2025/introducing-sampo",
+      "type": "internal"
+    },
+    {
+      "source": "/2025/introducing-sampo",
+      "target": "/?year=2025",
+      "type": "internal"
+    },
+    {
+      "source": "/2025/introducing-sampo",
+      "target": "https://bruits.org",
+      "type": "friend"
+    },
+    {
+      "source": "/2025/introducing-sampo",
+      "target": "https://erika.florist/",
+      "type": "friend"
+    },
+    {
+      "source": "/2026/ai-agents",
+      "target": "/?year=2026",
+      "type": "internal"
+    },
+    {
+      "source": "/2026/ai-agents",
+      "target": "/2025/five-years",
+      "type": "internal"
+    },
+    {
+      "source": "/2026/coffee-peachy",
+      "target": "/?year=2026",
+      "type": "internal"
+    },
+    {
+      "source": "/2026/coffee-peachy",
+      "target": "/2023/discovering-coffee-toulouse",
+      "type": "internal"
+    },
+    {
+      "source": "/2026/remote-slo",
+      "target": "/?year=2026",
+      "type": "internal"
+    },
+    {
+      "source": "/2026/remote-slo",
+      "target": "/2025/five-years",
+      "type": "internal"
+    },
+    {
+      "source": "/2026/remote-slo",
+      "target": "/2026/ai-agents",
+      "type": "internal"
+    },
+    {
+      "source": "/about",
+      "target": "/2023/launching-blog-astro",
+      "type": "internal"
+    },
+    {
+      "source": "/about",
+      "target": "https://aureliendossantos.com/",
+      "type": "friend"
+    },
+    {
+      "source": "/about",
+      "target": "https://erika.florist/",
+      "type": "friend"
+    },
+    {
+      "source": "/catalogue",
+      "target": "/2025/catalogue-astro-turso",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue",
+      "target": "/catalogue/todo",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue",
+      "target": "/catalogue/wrapped",
+      "type": "internal"
+    },
+    {
+      "source": "/catalogue/wrapped/2025",
+      "target": "/catalogue",
+      "type": "internal"
+    },
+    {
+      "source": "/about",
+      "target": "https://aureliendossantos.com/2024/sidenotes",
+      "type": "friend"
+    },
+    {
+      "source": "/resume",
+      "target": "https://bruits.org/",
+      "type": "friend"
+    }
+  ]
+}

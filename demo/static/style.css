@@ -1,0 +1,180 @@
+@font-face {
+    font-family: Libron;
+    src: url("/fonts/Libron-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: Libron;
+    src: url("/fonts/Libron-Italic.woff2") format("woff2");
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: Libron;
+    src: url("/fonts/Libron-Bold.woff2") format("woff2");
+    font-weight: 700;
+    font-display: swap;
+}
+
+:root {
+    --paper: #fbfaf7;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --rim: #e7e5e4;
+    color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --paper: #1c1917;
+        --ink: #e7e5e4;
+        --muted: #a8a29e;
+        --rim: #3a3532;
+        color-scheme: dark;
+    }
+}
+
+:root[data-theme="dark"] {
+    --paper: #1c1917;
+    --ink: #e7e5e4;
+    --muted: #a8a29e;
+    --rim: #3a3532;
+    color-scheme: dark;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 1.125rem/1.6 Libron, Georgia, serif;
+}
+
+header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1.5rem;
+    padding: 1rem 1.5rem;
+}
+
+.brand {
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+}
+
+a {
+    color: inherit;
+    text-decoration-color: var(--rim);
+    text-underline-offset: 0.2em;
+}
+
+.text main {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 1rem 1.5rem 4rem;
+}
+
+h1 {
+    margin: 0 0 1rem;
+    font-size: 2rem;
+    line-height: 1.2;
+}
+
+h2 {
+    margin-top: 2.5rem;
+    font-size: 1.375rem;
+}
+
+pre {
+    padding: 1rem;
+    overflow-x: auto;
+    border: 1px solid var(--rim);
+    border-radius: 10px;
+    font-size: 0.85rem;
+}
+
+/* Maudit inlines one dark highlighting theme, unreadable on the light paper */
+pre [style] {
+    color: inherit !important;
+}
+
+.credits {
+    margin-top: 3rem;
+    color: var(--muted);
+    font-style: italic;
+}
+
+.map .sheet {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+}
+
+.map main {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    padding: 0 1rem 1rem;
+}
+
+graph-garden {
+    flex: 1;
+    border: 1px solid var(--rim);
+    border-radius: 10px;
+    --gg-label-color: var(--ink);
+    --gg-label-halo-color: var(--paper);
+}
+
+.legend {
+    position: absolute;
+    bottom: 2rem;
+    left: 2rem;
+    right: 2rem;
+    max-width: 26rem;
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--rim);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--muted);
+    font-size: 0.875rem;
+    font-style: italic;
+    pointer-events: none;
+}
+
+/* The frame sits on `.sheet`, as a body background would spread to the whole canvas */
+:root[data-capture] body {
+    padding: 40px;
+    background: none;
+}
+
+:root[data-capture] .sheet {
+    border: 1px solid var(--rim);
+    border-radius: 18px;
+    background: var(--paper);
+    box-shadow:
+        0 2px 6px rgb(28 25 23 / 0.06),
+        0 18px 40px rgb(28 25 23 / 0.14);
+}
+
+:root[data-capture] .map .sheet {
+    height: calc(100vh - 80px);
+}

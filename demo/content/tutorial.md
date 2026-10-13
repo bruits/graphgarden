@@ -2,7 +2,7 @@
 
 ## How it works
 
-Each site in a garden publishes one JSON file at `/.well-known/graphgarden.json`. It lists the site's pages as nodes, the links between them and to friend sites as edges, and the friends the site declares. The `<graph-garden>` element fetches the file of the site it sits on and the files of its friends, then draws them as one graph. The [specification](./README.md) has the full format.
+Each site in a garden publishes one JSON file at `/.well-known/graphgarden.json`. It lists the site's pages as nodes, the links between them and to friend sites as edges, and the friends the site declares. The `<graph-garden>` element fetches the file of the site it sits on and the files of its friends, then draws them as one graph. The [specification](https://github.com/bruits/graphgarden/blob/main/crates/graphgarden-protocol/README.md) has the full format.
 
 Friendship goes one way. Adding Bob shows his graph on your site, and Bob shows yours once he adds you back.
 
@@ -77,7 +77,7 @@ base_url = "https://alice.dev/"
 title = "Alice's Garden"
 ```
 
-Then chain it to the build, for example in `package.json` with `"build": "astro build && graphgarden build"`. It writes `dist/.well-known/graphgarden.json`, so a dev server that skips the build has no graph to show. The [CLI README](../graphgarden/README.md) covers the other options, such as leaving out pages or the links of a site's navigation. The CORS header above applies here too.
+Then chain it to the build, for example in `package.json` with `"build": "astro build && graphgarden build"`. It writes `dist/.well-known/graphgarden.json`, so a dev server that skips the build has no graph to show. The [CLI README](https://github.com/bruits/graphgarden/blob/main/crates/graphgarden/README.md) covers the other options, such as leaving out pages or the links of a site's navigation. The CORS header above applies here too.
 
 ## Show the graph
 
@@ -97,4 +97,6 @@ graph-garden {
 }
 ```
 
-The [web component README](../../packages/graphgarden-web/README.md) lists every colour and attribute.
+The [web component README](https://github.com/bruits/graphgarden/blob/main/packages/graphgarden-web/README.md) lists every colour and attribute.
+
+To appear on the shared garden of this site, see [Join](/join/).
