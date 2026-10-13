@@ -1,31 +1,42 @@
 import { describe, test, expect, vi, afterEach } from "vitest";
 import Graph from "graphology";
+import { DEFAULT_SETTINGS, type Settings } from "sigma/settings";
 import {
 	isGraphGardenFile,
 	buildGraph,
 	fetchFriendGraphs,
 	assignLayout,
+	assignNodeSizes,
 	type GraphGardenFile,
 	type GraphGarden,
 	DEFAULT_CONFIG,
 } from "./index.js";
 
+interface SigmaPayload {
+	node?: string;
+	event?: { original: { type: string } };
+}
+
 // Sigma needs WebGL, which happy-dom lacks
 const { renderers, FakeSigma } = vi.hoisted(() => {
 	const created: Fake[] = [];
 	class Fake {
-		handlers = new Map<string, (payload: { node: string }) => void>();
+		handlers = new Map<string, (payload: SigmaPayload) => void>();
 		killed = false;
+		refreshes = 0;
 		constructor(
 			readonly graph: Graph,
 			_container: HTMLElement,
-			readonly settings: Record<string, unknown>,
+			readonly settings: Partial<Settings>,
 		) {
 			created.push(this);
 		}
-		on(event: string, handler: (payload: { node: string }) => void) {
+		on(event: string, handler: (payload: SigmaPayload) => void) {
 			this.handlers.set(event, handler);
 			return this;
+		}
+		refresh() {
+			this.refreshes++;
 		}
 		kill() {
 			this.killed = true;
@@ -96,6 +107,69 @@ function mount(configure: (element: GraphGarden) => void = () => {}): GraphGarde
 	configure(element);
 	document.body.appendChild(element);
 	return element;
+}
+
+/** A 2D context recording the text and rings drawn on it, since happy-dom has no canvas. */
+function recordingContext() {
+	const texts: {
+		text: string;
+		x: number;
+		y: number;
+		font: string;
+		letterSpacing: string;
+		textAlign: string;
+		textBaseline: string;
+		ink: string;
+		alpha: number;
+	}[] = [];
+	const halos: { text: string; color: string }[] = [];
+	const rings: { radius: number; color: string }[] = [];
+	let radius = 0;
+	const context = {
+		font: "",
+		letterSpacing: "0px",
+		textAlign: "start",
+		textBaseline: "alphabetic",
+		lineJoin: "miter",
+		lineWidth: 1,
+		strokeStyle: "",
+		fillStyle: "",
+		globalAlpha: 1,
+		save() {},
+		restore() {},
+		beginPath() {},
+		arc(_x: number, _y: number, r: number) {
+			radius = r;
+		},
+		stroke() {
+			rings.push({ radius, color: this.strokeStyle });
+		},
+		strokeText(text: string) {
+			halos.push({ text, color: this.strokeStyle });
+		},
+		fillText(text: string, x: number, y: number) {
+			texts.push({
+				text,
+				x,
+				y,
+				font: this.font,
+				letterSpacing: this.letterSpacing,
+				textAlign: this.textAlign,
+				textBaseline: this.textBaseline,
+				ink: this.fillStyle,
+				alpha: this.globalAlpha,
+			});
+		},
+	};
+	return { context: context as unknown as CanvasRenderingContext2D, texts, halos, rings };
+}
+
+function pointer(type: string) {
+	return { original: { type } };
+}
+
+function labelData(key: string, label: string | null, tier: string) {
+	return { key, label, tier, x: 100, y: 50, size: 6, color: "#6366f1" };
 }
 
 afterEach(() => {
@@ -421,6 +495,72 @@ describe("assignLayout", () => {
 	});
 });
 
+describe("assignNodeSizes", () => {
+	test.each<[string, [string, string][], Record<string, number>]>([
+		[
+			"keeps every node at nodeSize when degrees are equal",
+			[
+				["a", "b"],
+				["b", "c"],
+				["c", "a"],
+			],
+			{ a: 4, b: 4, c: 4 },
+		],
+		[
+			"grows nodes above the median by half and above the ninth decile twice",
+			[
+				["hub", "a"],
+				["hub", "b"],
+				["hub", "c"],
+				["hub", "d"],
+				["hub", "mid"],
+				["mid", "e"],
+				["mid", "f"],
+			],
+			{ hub: 8, mid: 6, a: 4, b: 4, c: 4, d: 4, e: 4, f: 4 },
+		],
+		[
+			"gives nodes of equal degree the same size",
+			[
+				["h", "a"],
+				["h", "b"],
+				["h", "c"],
+				["k", "d"],
+				["k", "e"],
+				["k", "f"],
+			],
+			{ h: 6, k: 6, a: 4, b: 4, c: 4, d: 4, e: 4, f: 4 },
+		],
+		[
+			"ignores self-loops",
+			[
+				["a", "a"],
+				["a", "b"],
+			],
+			{ a: 4, b: 4 },
+		],
+	])("%s", (_label, edges, expected) => {
+		const graph = new Graph();
+		for (const [source, target] of edges) graph.mergeDirectedEdge(source, target);
+
+		assignNodeSizes(graph, 4);
+
+		expect(Object.fromEntries(graph.mapNodes((node, { size }) => [node, size]))).toEqual(expected);
+	});
+
+	test("marks each node with its tier", () => {
+		const graph = new Graph();
+		for (const leaf of ["a", "b", "c", "d", "mid"]) graph.mergeDirectedEdge("hub", leaf);
+		for (const leaf of ["e", "f"]) graph.mergeDirectedEdge("mid", leaf);
+
+		assignNodeSizes(graph, 4);
+
+		expect(graph.getNodeAttribute("hub", "tier")).toBe("large");
+		expect(graph.getNodeAttribute("mid", "tier")).toBe("medium");
+		expect(graph.getNodeAttribute("a", "tier")).toBe("small");
+	});
+});
+
 describe("<graph-garden>", () => {
 	test("renders the local graph with its friends merged in", async () => {
 		serve((url) => (url.startsWith(FRIEND) ? friendFile() : makeFile({ friends: [FRIEND] })));
@@ -435,6 +575,33 @@ describe("<graph-garden>", () => {
 		});
 		expect(renderers).toHaveLength(1);
 		expect(renderers[0].graph).toBe(element.graph);
+	});
+
+	test("sizes nodes by their edges once friends are merged", async () => {
+		serve((url) =>
+			url.startsWith(FRIEND)
+				? friendFile({
+						edges: [
+							{ source: "/", target: "/blog/", type: "internal" },
+							{ source: "/", target: LOCAL, type: "friend" },
+							{ source: "/blog/", target: LOCAL, type: "friend" },
+						],
+					})
+				: makeFile({
+						friends: [FRIEND],
+						nodes: [
+							{ url: "/", title: "Home" },
+							{ url: "/about/", title: "About" },
+						],
+						edges: [{ source: "/", target: "/about/", type: "internal" }],
+					}),
+		);
+
+		const element = mount();
+		await element.ready;
+
+		expect(element.graph!.getNodeAttribute(LOCAL, "size")).toBe(DEFAULT_CONFIG.nodeSize * 2);
+		expect(element.graph!.getNodeAttribute(`${LOCAL}about/`, "size")).toBe(DEFAULT_CONFIG.nodeSize);
 	});
 
 	test.each([
@@ -535,6 +702,7 @@ describe("<graph-garden>", () => {
 		});
 		await element.ready;
 
+		// Both nodes share the only edge, so both keep the base size
 		expect(element.graph!.getNodeAttributes(LOCAL)).toMatchObject({ size: 7, color: "#ff0000" });
 		expect(element.graph!.getEdgeAttribute(element.graph!.edges()[0], "size")).toBe(
 			DEFAULT_CONFIG.edgeSize,
@@ -543,5 +711,347 @@ describe("<graph-garden>", () => {
 			labelSize: 14,
 			labelColor: { color: "#00ff00" },
 		});
+	});
+});
+
+describe("<graph-garden> labels and hover", () => {
+	async function render(configure: (element: GraphGarden) => void = () => {}) {
+		serve(() =>
+			makeFile({
+				nodes: [
+					{ url: "/", title: "Home" },
+					{ url: "/about/", title: "About" },
+					{ url: "/blog/", title: "Blog" },
+				],
+				edges: [
+					{ source: "/", target: "/about/", type: "internal" },
+					{ source: "/", target: FRIEND, type: "friend" },
+					{ source: "/", target: "https://charlie.test/", type: "friend" },
+					{ source: "/blog/", target: "/about/", type: "internal" },
+				],
+			}),
+		);
+		const element = mount(configure);
+		await element.ready;
+		const renderer = renderers[0];
+		return { element, renderer, settings: { ...DEFAULT_SETTINGS, ...renderer.settings } };
+	}
+
+	test("writes labels centred under their node, in the element's font, over a halo", async () => {
+		const { settings } = await render((garden) => {
+			garden.style.fontFamily = "Georgia";
+			garden.style.setProperty("--gg-label-halo-color", "#101010");
+		});
+		const { context, texts, halos } = recordingContext();
+
+		settings.defaultDrawNodeLabel(
+			context,
+			labelData(`${LOCAL}about/`, "About", "medium"),
+			settings,
+		);
+
+		expect(texts).toEqual([
+			{
+				text: "About",
+				x: 100,
+				y: 60,
+				font: "400 12px Georgia",
+				letterSpacing: "0px",
+				textAlign: "center",
+				textBaseline: "top",
+				ink: DEFAULT_CONFIG.labelColor,
+				alpha: 1,
+			},
+		]);
+		expect(halos).toEqual([{ text: "About", color: "#101010" }]);
+	});
+
+	test("sets large labels in capitals and small ones in a lighter italic", async () => {
+		const { settings } = await render();
+		const { context, texts } = recordingContext();
+
+		settings.defaultDrawNodeLabel(context, labelData(LOCAL, "Home", "large"), settings);
+		settings.defaultDrawNodeLabel(context, labelData(`${LOCAL}blog/`, "Blog", "small"), settings);
+
+		expect(texts[0]).toMatchObject({ text: "HOME", alpha: 1 });
+		expect(texts[1]).toMatchObject({ text: "Blog", alpha: 0.7 });
+		expect(texts[1].font).toMatch(/^italic /);
+	});
+
+	test("sets large labels as heavier, smaller and letter-spaced capitals than medium ones", async () => {
+		const { settings } = await render();
+		const { context, texts } = recordingContext();
+
+		settings.defaultDrawNodeLabel(context, labelData(LOCAL, "Home", "large"), settings);
+		settings.defaultDrawNodeLabel(context, labelData(`${LOCAL}about/`, "Home", "medium"), settings);
+
+		const [large, medium] = texts.map(({ font, letterSpacing }) => ({
+			weight: Number(/^(?:italic )?(\d+) /.exec(font)![1]),
+			size: parseFloat(/ ([\d.]+)px /.exec(font)![1]),
+			tracking: parseFloat(letterSpacing),
+		}));
+		expect(large.weight).toBeGreaterThan(medium.weight);
+		expect(large.size).toBeLessThan(medium.size);
+		expect(large.tracking).toBeGreaterThan(0);
+		expect(medium.tracking).toBe(0);
+	});
+
+	test.each(["large", "medium", "small"])(
+		"redraws a hovered %s label over the idle one in full ink",
+		async (tier) => {
+			const { renderer, settings } = await render();
+			const idle = recordingContext();
+			const hover = recordingContext();
+			const data = labelData(`${LOCAL}about/`, "About", tier);
+			renderer.handlers.get("enterNode")!({ node: data.key, event: pointer("mousemove") });
+
+			settings.defaultDrawNodeLabel(idle.context, data, settings);
+			settings.defaultDrawNodeHover(hover.context, data, settings);
+
+			expect(hover.texts[0]).toEqual({ ...idle.texts[0], alpha: 1 });
+		},
+	);
+
+	test("draws no label for a node without a title", async () => {
+		const { settings } = await render();
+		const { context, texts } = recordingContext();
+
+		settings.defaultDrawNodeLabel(context, labelData(FRIEND, null, "small"), settings);
+
+		expect(texts).toEqual([]);
+	});
+
+	test.each([
+		[
+			"a local page with its path",
+			`${LOCAL}about/?page=2`,
+			"About",
+			"small",
+			["About", "/about/?page=2"],
+		],
+		["a page with its path decoded", `${LOCAL}caf%C3%A9/`, "Café", "small", ["Café", "/café/"]],
+		[
+			"a page with a malformed path as written",
+			`${LOCAL}100%/`,
+			"Full",
+			"small",
+			["Full", "/100%/"],
+		],
+		[
+			"a friend page with its host and path",
+			`${FRIEND}blog/`,
+			"Blog",
+			"small",
+			["Blog", "friend.test/blog/"],
+		],
+		[
+			"a page without a title with its address alone",
+			"https://charlie.test/",
+			null,
+			"small",
+			["charlie.test"],
+		],
+		[
+			"a large page without a title in its own letter case",
+			`${FRIEND}Blog/Post`,
+			null,
+			"large",
+			["friend.test/Blog/Post"],
+		],
+	])("rings a hovered node and names %s", async (_label, key, label, tier, expected) => {
+		const { element, renderer, settings } = await render();
+		const { context, texts, rings } = recordingContext();
+		element.graph!.mergeNode(key);
+		renderer.handlers.get("enterNode")!({ node: key, event: pointer("mousemove") });
+
+		settings.defaultDrawNodeHover(context, labelData(key, label, tier), settings);
+
+		expect(rings).toEqual([{ radius: 9, color: "#6366f1" }]);
+		expect(texts.map(({ text }) => text)).toEqual(expected);
+		expect(texts[0].alpha).toBe(1);
+	});
+
+	test("draws no hover once the pointer has left the node", async () => {
+		const { renderer, settings } = await render();
+		const { context, texts, rings } = recordingContext();
+		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
+		renderer.handlers.get("leaveNode")!({ node: LOCAL, event: pointer("mousemove") });
+
+		settings.defaultDrawNodeHover(context, labelData(LOCAL, "Home", "large"), settings);
+
+		expect(rings).toEqual([]);
+		expect(texts).toEqual([]);
+	});
+
+	test("always labels large nodes", async () => {
+		const { element, settings } = await render();
+		const graph = element.graph!;
+		const forceLabel = (key: string) =>
+			settings.nodeReducer!(key, graph.getNodeAttributes(key)).forceLabel;
+
+		expect(graph.getNodeAttribute(LOCAL, "tier")).toBe("large");
+		expect(forceLabel(LOCAL)).toBe(true);
+		expect(forceLabel(`${LOCAL}blog/`)).toBe(false);
+	});
+
+	test("leaves the graph as it is when a finger touches a node", async () => {
+		const { element, renderer, settings } = await render();
+		const blog = `${LOCAL}blog/`;
+
+		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("touchstart") });
+
+		expect(renderer.refreshes).toBe(0);
+		expect(settings.nodeReducer!(blog, element.graph!.getNodeAttributes(blog)).label).toBe("Blog");
+	});
+
+	test("leaves the graph as it is when a finger moves off a node", async () => {
+		const { renderer } = await render();
+
+		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("touchstart") });
+		renderer.handlers.get("leaveNode")!({ node: LOCAL, event: pointer("touchmove") });
+
+		expect(renderer.refreshes).toBe(0);
+	});
+
+	test("forces the labels of the 15 best connected nodes, at rest and around a hovered node", async () => {
+		// Home links to twenty hubs, hub i having i + 2 leaves, so the hubs differ in degree.
+		// Every page also links to an untitled friend, the best connected node of all.
+		const nodes: GraphGardenFile["nodes"] = [{ url: "/", title: "Home" }];
+		const edges: GraphGardenFile["edges"] = [];
+		for (let hub = 0; hub < 20; hub++) {
+			nodes.push({ url: `/h${hub}/`, title: `Hub ${hub}` });
+			edges.push({ source: "/", target: `/h${hub}/`, type: "internal" });
+			for (let leaf = 0; leaf < hub + 2; leaf++) {
+				nodes.push({ url: `/h${hub}/${leaf}/`, title: `Leaf ${leaf}` });
+				edges.push({ source: `/h${hub}/`, target: `/h${hub}/${leaf}/`, type: "internal" });
+			}
+		}
+		for (const { url } of nodes) edges.push({ source: url, target: FRIEND, type: "friend" });
+		serve(() => makeFile({ nodes, edges }));
+		const element = mount();
+		await element.ready;
+		const graph = element.graph!;
+		const renderer = renderers[0];
+		const hubs = Array.from({ length: 20 }, (_, hub) => `${LOCAL}h${hub}/`);
+		const display = (node: string) =>
+			renderer.settings.nodeReducer!(node, graph.getNodeAttributes(node));
+		const forced = () => graph.filterNodes((node) => display(node).forceLabel === true);
+
+		// Home has 21 edges and hub i has i + 4, so the best connected titled nodes are Home and hubs 6 to 19
+		expect(new Set(forced())).toEqual(new Set([LOCAL, ...hubs.slice(6)]));
+
+		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
+
+		// Hubs 5 to 19 are Home's 15 best connected neighbours, and hub 4 is left out of them
+		expect(new Set(forced().filter((node) => node !== LOCAL))).toEqual(new Set(hubs.slice(5)));
+		expect(graph.neighbors(LOCAL).map((node) => display(node).label)).not.toContain(null);
+		expect(display(hubs[4])).toMatchObject({ label: "Hub 4", forceLabel: false });
+	});
+
+	test("fades all but the hovered node's neighbours until the pointer leaves", async () => {
+		const { element, renderer, settings } = await render();
+		const graph = element.graph!;
+		const display = (key: string) => settings.nodeReducer!(key, graph.getNodeAttributes(key));
+		const edgeColor = (source: string, target: string) => {
+			const edge = graph.directedEdge(source, target)!;
+			return settings.edgeReducer!(edge, graph.getEdgeAttributes(edge)).color;
+		};
+		const blog = `${LOCAL}blog/`;
+		const about = `${LOCAL}about/`;
+
+		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
+
+		expect(renderer.refreshes).toBe(1);
+		expect(display(LOCAL)).toMatchObject({ label: "Home", color: DEFAULT_CONFIG.localNodeColor });
+		expect(display(about)).toMatchObject({
+			forceLabel: true,
+			color: DEFAULT_CONFIG.localNodeColor,
+		});
+		expect(display(blog)).toMatchObject({ label: null, color: "rgb(232,232,253)" });
+		expect(edgeColor(LOCAL, about)).toBe(DEFAULT_CONFIG.localEdgeColor);
+		expect(edgeColor(blog, about)).toBe("rgb(239,241,244)");
+
+		renderer.handlers.get("leaveNode")!({ node: LOCAL, event: pointer("mousemove") });
+
+		expect(renderer.refreshes).toBe(2);
+		expect(display(blog)).toMatchObject({ label: "Blog", color: DEFAULT_CONFIG.localNodeColor });
+		expect(edgeColor(blog, about)).toBe(DEFAULT_CONFIG.localEdgeColor);
+	});
+
+	test("fades toward the configured halo colour", async () => {
+		const { element, renderer, settings } = await render((garden) => {
+			garden.style.setProperty("--gg-label-halo-color", "#0f172a");
+		});
+		const graph = element.graph!;
+		const blog = `${LOCAL}blog/`;
+		const about = `${LOCAL}about/`;
+		const edge = graph.directedEdge(blog, about)!;
+
+		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
+
+		expect(settings.nodeReducer!(blog, graph.getNodeAttributes(blog)).color).toBe("rgb(28,35,72)");
+		expect(settings.edgeReducer!(edge, graph.getEdgeAttributes(edge)).color).toBe("rgb(35,44,63)");
+	});
+
+	test("redraws its labels once the page fonts have loaded", async () => {
+		const fonts = deferred<void>();
+		Object.defineProperty(document, "fonts", {
+			value: { ready: fonts.promise },
+			configurable: true,
+		});
+		try {
+			const { renderer } = await render();
+			expect(renderer.refreshes).toBe(0);
+
+			fonts.resolve();
+			await fonts.promise;
+
+			expect(renderer.refreshes).toBe(1);
+		} finally {
+			Reflect.deleteProperty(document, "fonts");
+		}
+	});
+
+	test.each([
+		[
+			"hovers again when the pointer comes back onto the node it left the canvas from",
+			"mouseleave",
+			true,
+		],
+		[
+			"stays idle when the pointer comes back after leaving the node inside the canvas",
+			"mousemove",
+			false,
+		],
+	])("%s", async (_label, leave, hovered) => {
+		const { element, renderer, settings } = await render();
+		const blog = `${LOCAL}blog/`;
+		const container = element.shadowRoot!.querySelector("div")!;
+
+		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
+		renderer.handlers.get("leaveNode")!({ node: LOCAL, event: pointer(leave) });
+		renderer.handlers.get("enterStage")!({ event: pointer("mouseenter") });
+
+		const blogLabel = settings.nodeReducer!(blog, element.graph!.getNodeAttributes(blog)).label;
+		expect(blogLabel).toBe(hovered ? null : "Blog");
+		expect(container.style.cursor).toBe(hovered ? "pointer" : "default");
+	});
+
+	test.each([
+		["the hovered node", null],
+		["the node the pointer left the canvas from", "mouseleave"],
+	])("forgets %s when removed", async (_label, leave) => {
+		const { element, renderer } = await render();
+		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
+		if (leave) renderer.handlers.get("leaveNode")!({ node: LOCAL, event: pointer(leave) });
+
+		element.remove();
+		document.body.appendChild(element);
+		await element.ready;
+		renderers[1].handlers.get("enterStage")!({ event: pointer("mouseenter") });
+
+		const settings = renderers[1].settings;
+		const blog = `${LOCAL}blog/`;
+		expect(settings.nodeReducer!(blog, element.graph!.getNodeAttributes(blog)).label).toBe("Blog");
 	});
 });

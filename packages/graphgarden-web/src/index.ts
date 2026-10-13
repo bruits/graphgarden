@@ -1,12 +1,22 @@
 import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
-import { EdgeRectangleProgram } from "sigma/rendering";
+import {
+	EdgeRectangleProgram,
+	type NodeHoverDrawingFunction,
+	type NodeLabelDrawingFunction,
+} from "sigma/rendering";
+import { colorToArray } from "sigma/utils";
 
 const WELL_KNOWN_PATH = "/.well-known/graphgarden.json";
 const FETCH_TIMEOUT_MS = 10_000;
 // Below this order, Barnes-Hut costs more per iteration than the exact computation
 const BARNES_HUT_MIN_ORDER = 1000;
+const TIER_SCALES = { small: 1, medium: 1.5, large: 2 };
+const FADE_RATIO = 0.85;
+const MUTED_LABEL_ALPHA = 0.7;
+// Forced labels skip Sigma's label grid, so too many would overlap
+const FORCED_LABEL_CAP = 15;
 
 export interface GraphGardenConfig {
 	localNodeColor: string;
@@ -15,6 +25,7 @@ export interface GraphGardenConfig {
 	localEdgeColor: string;
 	friendEdgeColor: string;
 	labelColor: string;
+	labelHaloColor: string;
 	nodeSize: number;
 	edgeSize: number;
 	labelSize: number;
@@ -29,6 +40,7 @@ export const DEFAULT_CONFIG: GraphGardenConfig = {
 	localEdgeColor: "#94a3b8",
 	friendEdgeColor: "#fbbf24",
 	labelColor: "#334155",
+	labelHaloColor: "#ffffff",
 	nodeSize: 4,
 	edgeSize: 0.5,
 	labelSize: 12,
@@ -202,6 +214,43 @@ function defaultIterations(order: number): number {
 	return Math.max(50, Math.min(200, Math.round(200_000 / order)));
 }
 
+/**
+ * Size each node by its edge count against the graph's deciles: `medium` above the median,
+ * `large` above the ninth decile. Mutates node `size` and `tier` in place.
+ */
+export function assignNodeSizes(graph: Graph, nodeSize: number): void {
+	if (graph.order === 0) return;
+
+	const degrees = graph
+		.mapNodes((node) => graph.degreeWithoutSelfLoops(node))
+		.toSorted((a, b) => a - b);
+	const median = quantile(degrees, 0.5);
+	const ninthDecile = quantile(degrees, 0.9);
+
+	graph.forEachNode((node) => {
+		const degree = graph.degreeWithoutSelfLoops(node);
+		const tier = degree > ninthDecile ? "large" : degree > median ? "medium" : "small";
+		graph.mergeNodeAttributes(node, { tier, size: nodeSize * TIER_SCALES[tier] });
+	});
+}
+
+function bestConnected(graph: Graph, nodes: string[]): Set<string> {
+	// An untitled node draws no label, so a forced slot on it would be wasted
+	const titled = nodes.filter((node) => graph.getNodeAttribute(node, "label"));
+	const byDegree = titled.toSorted(
+		(a, b) => graph.degreeWithoutSelfLoops(b) - graph.degreeWithoutSelfLoops(a),
+	);
+	return new Set(byDegree.slice(0, FORCED_LABEL_CAP));
+}
+
+/** The `q` quantile of non-empty ascending `sorted`, interpolated between its closest ranks. */
+function quantile(sorted: number[], q: number): number {
+	const position = (sorted.length - 1) * q;
+	const below = sorted[Math.floor(position)];
+	const above = sorted[Math.ceil(position)];
+	return below + (above - below) * (position - Math.floor(position));
+}
+
 async function fetchProtocolFile(url: string, signal?: AbortSignal): Promise<GraphGardenFile> {
 	const controller = new AbortController();
 	const cancel = () => controller.abort(signal?.reason);
@@ -243,8 +292,7 @@ export async function fetchFriendGraphs(
 	);
 	if (signal?.aborted) return graph;
 
-	const localBase: unknown = graph.getAttribute("base_url");
-	const localOrigin = typeof localBase === "string" ? parseHttpUrl(localBase)?.origin : undefined;
+	const localOrigin = localOriginOf(graph);
 	for (const result of results) {
 		if (result.status === "rejected") {
 			console.warn("fetchFriendGraphs: skipped a friend:", result.reason);
@@ -255,6 +303,147 @@ export async function fetchFriendGraphs(
 		}
 	}
 	return graph;
+}
+
+function localOriginOf(graph: Graph): string | undefined {
+	const base: unknown = graph.getAttribute("base_url");
+	return typeof base === "string" ? parseHttpUrl(base)?.origin : undefined;
+}
+
+function destinationOf(url: string, localOrigin: string | undefined): string {
+	const parsed = parseHttpUrl(url);
+	if (parsed === null) return url;
+	const path = readablePath(`${parsed.pathname}${parsed.search}`);
+	if (parsed.origin === localOrigin) return path;
+	return path === "/" ? parsed.host : `${parsed.host}${path}`;
+}
+
+function readablePath(path: string): string {
+	try {
+		return decodeURI(path);
+	} catch {
+		return path;
+	}
+}
+
+/** Mix `color` toward `background`, opaque since Sigma renders translucent WebGL colours too light. */
+function fade(color: string, background: string): string {
+	const from = colorToArray(color);
+	const to = colorToArray(background);
+	const [r, g, b] = [0, 1, 2].map((i) => Math.round(from[i] + (to[i] - from[i]) * FADE_RATIO));
+	return `rgb(${r},${g},${b})`;
+}
+
+type LabelData = Parameters<NodeLabelDrawingFunction>[1];
+type LabelSettings = Parameters<NodeLabelDrawingFunction>[2];
+
+interface TextStyle {
+	font: string;
+	letterSpacing: string;
+	ink: string;
+	alpha: number;
+}
+
+function drawHaloText(
+	context: CanvasRenderingContext2D,
+	text: string,
+	x: number,
+	top: number,
+	halo: string,
+	style: TextStyle,
+): void {
+	// Sigma draws every label on one shared context
+	context.save();
+	context.font = style.font;
+	context.letterSpacing = style.letterSpacing;
+	context.textAlign = "center";
+	context.textBaseline = "top";
+	context.lineJoin = "round";
+	context.lineWidth = 4;
+	context.strokeStyle = halo;
+	context.strokeText(text, x, top);
+	context.fillStyle = style.ink;
+	context.globalAlpha = style.alpha;
+	context.fillText(text, x, top);
+	context.restore();
+}
+
+/** Returns where the line below the label starts. */
+function drawMapLabel(
+	context: CanvasRenderingContext2D,
+	data: LabelData,
+	settings: LabelSettings,
+	text: string,
+	halo: string,
+	emphasised: boolean,
+): number {
+	const large = data.tier === "large";
+	const small = data.tier === "small";
+	const size = large ? settings.labelSize * 0.9 : settings.labelSize;
+	const top = labelTop(data);
+	drawHaloText(context, large ? text.toUpperCase() : text, data.x, top, halo, {
+		font: `${small ? "italic " : ""}${large ? 600 : 400} ${size}px ${settings.labelFont}`,
+		letterSpacing: large ? `${size / 10}px` : "0px",
+		ink: settings.labelColor.color ?? "#000",
+		alpha: small && !emphasised ? MUTED_LABEL_ALPHA : 1,
+	});
+	return top + settings.labelSize + 3;
+}
+
+function labelTop(data: LabelData): number {
+	return data.y + data.size + 4;
+}
+
+/** Keeps its letter case, since paths are case-sensitive. */
+function drawDestination(
+	context: CanvasRenderingContext2D,
+	data: LabelData,
+	settings: LabelSettings,
+	text: string,
+	top: number,
+	halo: string,
+	alpha: number,
+): void {
+	drawHaloText(context, text, data.x, top, halo, {
+		font: `italic 400 ${settings.labelSize * 0.9}px ${settings.labelFont}`,
+		letterSpacing: "0px",
+		ink: settings.labelColor.color ?? "#000",
+		alpha,
+	});
+}
+
+function mapLabelDrawer(halo: string): NodeLabelDrawingFunction {
+	return (context, data, settings) => {
+		if (data.label) drawMapLabel(context, data, settings, data.label, halo, false);
+	};
+}
+
+/** Redraws the label glyph for glyph over the idle one, in full ink. */
+function mapHoverDrawer(
+	halo: string,
+	localOrigin: string | undefined,
+	hovered: () => string | null,
+): NodeHoverDrawingFunction {
+	return (context, data, settings) => {
+		// Sigma keeps drawing a node as hovered after the pointer leaves the canvas from it
+		if (data.key !== hovered()) return;
+
+		context.save();
+		context.beginPath();
+		context.arc(data.x, data.y, data.size + 3, 0, Math.PI * 2);
+		context.lineWidth = 1.5;
+		context.strokeStyle = data.color;
+		context.stroke();
+		context.restore();
+
+		const destination = destinationOf(data.key, localOrigin);
+		if (!data.label) {
+			drawDestination(context, data, settings, destination, labelTop(data), halo, 1);
+			return;
+		}
+		const next = drawMapLabel(context, data, settings, data.label, halo, true);
+		drawDestination(context, data, settings, destination, next, halo, MUTED_LABEL_ALPHA);
+	};
 }
 
 /**
@@ -280,6 +469,10 @@ export class GraphGarden extends HTMLElement {
 
 	private loading: AbortController | null = null;
 
+	private hovered: { node: string; labelledNeighbours: Set<string> } | null = null;
+
+	private leftCanvasFrom: string | null = null;
+
 	connectedCallback(): void {
 		const style = document.createElement("style");
 		style.textContent = `
@@ -299,6 +492,8 @@ export class GraphGarden extends HTMLElement {
 
 		this.renderer?.kill();
 		this.renderer = null;
+		this.hovered = null;
+		this.leftCanvasFrom = null;
 
 		this.graph?.clear();
 		this.graph = null;
@@ -316,6 +511,7 @@ export class GraphGarden extends HTMLElement {
 			// fetchFriendGraphs settles normally after an abort
 			if (signal.aborted) return;
 
+			assignNodeSizes(graph, config.nodeSize);
 			assignLayout(graph, config.iterations);
 			this.graph = graph;
 			this.initRenderer(config);
@@ -342,6 +538,7 @@ export class GraphGarden extends HTMLElement {
 			localEdgeColor: css("--gg-local-edge-color", DEFAULT_CONFIG.localEdgeColor),
 			friendEdgeColor: css("--gg-friend-edge-color", DEFAULT_CONFIG.friendEdgeColor),
 			labelColor: css("--gg-label-color", DEFAULT_CONFIG.labelColor),
+			labelHaloColor: css("--gg-label-halo-color", DEFAULT_CONFIG.labelHaloColor),
 			nodeSize: attr("node-size") ?? DEFAULT_CONFIG.nodeSize,
 			edgeSize: attr("edge-size") ?? DEFAULT_CONFIG.edgeSize,
 			labelSize: attr("label-size") ?? DEFAULT_CONFIG.labelSize,
@@ -350,11 +547,17 @@ export class GraphGarden extends HTMLElement {
 	}
 
 	private initRenderer(config: GraphGardenConfig): void {
-		if (!this.graph || !this.container) return;
+		const graph = this.graph;
+		if (!graph || !this.container) return;
+		// Sigma's label grid would otherwise hide some large nodes' labels
+		const labelledHubs = bestConnected(
+			graph,
+			graph.filterNodes((_node, attributes) => attributes.tier === "large"),
+		);
 
 		// Sigma throws without WebGL, as in happy-dom
 		try {
-			this.renderer = new Sigma(this.graph, this.container, {
+			this.renderer = new Sigma(graph, this.container, {
 				edgeProgramClasses: {
 					internal: EdgeRectangleProgram,
 					friend: EdgeRectangleProgram,
@@ -362,23 +565,75 @@ export class GraphGarden extends HTMLElement {
 				defaultEdgeColor: config.localEdgeColor,
 				labelColor: { color: config.labelColor },
 				labelSize: config.labelSize,
+				labelFont: getComputedStyle(this).fontFamily || "sans-serif",
 				renderEdgeLabels: false,
+				defaultDrawNodeLabel: mapLabelDrawer(config.labelHaloColor),
+				defaultDrawNodeHover: mapHoverDrawer(
+					config.labelHaloColor,
+					localOriginOf(graph),
+					() => this.hovered?.node ?? null,
+				),
+				nodeReducer: (node, attributes) => {
+					const data = { ...attributes, forceLabel: labelledHubs.has(node) };
+					const hovered = this.hovered;
+					if (hovered === null || node === hovered.node) return data;
+					if (graph.areNeighbors(node, hovered.node)) {
+						return { ...data, forceLabel: hovered.labelledNeighbours.has(node) };
+					}
+					return {
+						...data,
+						label: null,
+						forceLabel: false,
+						color: fade(attributes.color, config.labelHaloColor),
+					};
+				},
+				edgeReducer: (edge, attributes) => {
+					const hovered = this.hovered;
+					if (hovered === null || graph.hasExtremity(edge, hovered.node)) return attributes;
+					return { ...attributes, color: fade(attributes.color, config.labelHaloColor) };
+				},
 			});
 
 			this.renderer.on("clickNode", ({ node }) => {
 				if (parseHttpUrl(node)) window.location.href = node;
 			});
 
-			this.renderer.on("enterNode", () => {
-				if (this.container) this.container.style.cursor = "pointer";
+			// A finger has no hover, and Sigma emits no leaveNode when it lifts
+			this.renderer.on("enterNode", ({ node, event }) => {
+				if (!event.original.type.startsWith("touch")) this.hover(node);
 			});
 
-			this.renderer.on("leaveNode", () => {
-				if (this.container) this.container.style.cursor = "default";
+			this.renderer.on("leaveNode", ({ node, event }) => {
+				this.hover(null);
+				// Sigma still holds a node the pointer left the canvas from, so coming back onto it emits no enterNode
+				this.leftCanvasFrom = event.original.type === "mouseleave" ? node : null;
 			});
+
+			this.renderer.on("enterStage", () => {
+				const node = this.leftCanvasFrom;
+				this.leftCanvasFrom = null;
+				if (node !== null) this.hover(node);
+			});
+
+			// Canvas text drawn before its web font loads keeps the fallback font. happy-dom has no FontFaceSet.
+			void document.fonts?.ready
+				.then(() => this.renderer?.refresh())
+				.catch((error: unknown) => console.warn("<graph-garden> could not redraw labels:", error));
 		} catch (error) {
 			console.warn("<graph-garden> could not initialize Sigma renderer:", error);
 		}
+	}
+
+	private hover(node: string | null): void {
+		// Sigma emits leaveNode for a finger that crossed off a node too, which we never hovered
+		if (node === (this.hovered?.node ?? null)) return;
+		if (this.container) this.container.style.cursor = node === null ? "default" : "pointer";
+		this.hovered =
+			node === null || this.graph === null
+				? null
+				: { node, labelledNeighbours: bestConnected(this.graph, this.graph.neighbors(node)) };
+		// Moving between nodes emits leaveNode then enterNode, which share one scheduled render
+		this.renderer?.refresh({ schedule: true });
 	}
 }
 
