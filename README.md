@@ -1,8 +1,11 @@
-# <picture><source media="(prefers-color-scheme: dark)" srcset="./.github/assets/logo_dark.svg" /><img alt="" src="./.github/assets/logo.svg" width="36" height="36" /></picture> GraphGarden
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./.github/assets/logo_dark.svg" />
+  <img alt="GraphGarden" src="./.github/assets/logo.svg" />
+</picture>
 
 > If you look the right way, you can see that the whole world is a garden.
 
-A protocol, and related tools, to turn web rings into explorable node graphs. Read the [protocol](./crates/graphgarden-protocol/README.md), or follow the [tutorial](https://garden.bruits.org/tutorial/) to plant your own garden 🪴
+A protocol, and related tools, to turn web rings into explorable node graphs. Follow the [tutorial](https://garden.bruits.org/tutorial/) to plant your own garden 🪴
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./.github/assets/screenshot_dark.webp" />
