@@ -2,7 +2,7 @@
     <g transform="translate(-240.2 -354.9) scale(92.3669)">
         <mask id="bud-ring"><rect width="24" height="24" fill="#fff"/><circle cx="12" cy="7.6" r="3.5"/></mask>
         <g mask="url(#bud-ring)"><path fill="#2fb970" d="M11.3 12.6A7.57 7.57 0 0 1 2.6 4.6 7.57 7.57 0 0 1 11.3 12.6z"/><path fill="#fbbf24" d="M12.7 12.6A7.57 7.57 0 0 1 21.4 4.6 7.57 7.57 0 0 1 12.7 12.6z"/></g>
-        <circle fill="#ee8ba1" cx="12" cy="7.6" r="2.6"/>
+        <circle fill="#d07fbd" cx="12" cy="7.6" r="2.6"/>
         <path fill="#e7e5e4" d="M4.7 12.5h14.6c.66 0 1.2.54 1.2 1.2v.6c0 .66-.54 1.2-1.2 1.2H19l-1.45 5.25a1.2 1.2 0 0 1-1.16.75H7.61a1.2 1.2 0 0 1-1.16-.75L5 15.5h-.3c-.66 0-1.2-.54-1.2-1.2v-.6c0-.66.54-1.2 1.2-1.2z"/>
     </g>
     <g fill="#e7e5e4" transform="translate(2296.5 1591) scale(1 -1)">

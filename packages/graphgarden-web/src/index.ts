@@ -3,6 +3,7 @@ import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
 import {
 	EdgeRectangleProgram,
+	NodeCircleProgram,
 	type NodeHoverDrawingFunction,
 	type NodeLabelDrawingFunction,
 } from "sigma/rendering";
@@ -14,6 +15,7 @@ const FETCH_TIMEOUT_MS = 10_000;
 const BARNES_HUT_MIN_ORDER = 1000;
 const TIER_SCALES = { small: 1, medium: 1.5, large: 2 };
 const FADE_RATIO = 0.85;
+const SITE_FADE_RATIO = 0.65;
 const MUTED_LABEL_ALPHA = 0.7;
 // Forced labels skip Sigma's label grid, so too many would overlap
 const FORCED_LABEL_CAP = 15;
@@ -24,6 +26,9 @@ export interface GraphGardenConfig {
 	frontierNodeColor: string;
 	localEdgeColor: string;
 	friendEdgeColor: string;
+	frontierEdgeColor: string;
+	highlightNodeColor: string;
+	highlightEdgeColor: string;
 	labelColor: string;
 	labelHaloColor: string;
 	nodeSize: number;
@@ -39,6 +44,9 @@ export const DEFAULT_CONFIG: GraphGardenConfig = {
 	frontierNodeColor: "#9ca3af",
 	localEdgeColor: "#6cb38d",
 	friendEdgeColor: "#fbbf24",
+	frontierEdgeColor: "#adb3bc",
+	highlightNodeColor: "#b955a4",
+	highlightEdgeColor: "#d290c4",
 	labelColor: "#334155",
 	labelHaloColor: "#ffffff",
 	nodeSize: 4,
@@ -138,6 +146,9 @@ export function buildGraph(file: GraphGardenFile, config: GraphGardenConfig): Gr
 	return graph;
 }
 
+/** Who describes a page: the local site, a friend, or nobody for a frontier page. */
+type NodeKind = "local" | "friend" | "frontier";
+
 function mergeFile(
 	graph: Graph,
 	file: GraphGardenFile,
@@ -147,7 +158,6 @@ function mergeFile(
 	const origin = parseHttpUrl(file.base_url)?.origin;
 	if (origin === undefined) return;
 
-	const nodeColor = owner === "local" ? config.localNodeColor : config.friendNodeColor;
 	const declared = new Set<string>();
 	for (const node of file.nodes) {
 		const url = parseHttpUrl(node.url, file.base_url);
@@ -157,32 +167,59 @@ function mergeFile(
 			title: node.title,
 			label: node.title,
 			size: config.nodeSize,
-			color: nodeColor,
+			kind: owner,
+			origin,
+			type: programOf(url),
+			color: nodeColor(owner, config),
+		});
+		// An earlier file may have linked here while nobody described the page
+		graph.forEachInEdge(url.href, (edge, _attributes, source) => {
+			graph.setEdgeAttribute(edge, "color", edgeColor(graph, source, url.href, config));
 		});
 	}
 
 	for (const edge of file.edges) {
 		const source = parseHttpUrl(edge.source, file.base_url)?.href;
-		const target = parseHttpUrl(edge.target, file.base_url)?.href;
-		if (source === undefined || target === undefined || !declared.has(source)) continue;
+		const target = parseHttpUrl(edge.target, file.base_url);
+		if (source === undefined || target === null || !declared.has(source)) continue;
 
-		if (!graph.hasNode(target)) {
-			const friendLink = owner === "friend" && edge.type === "friend";
-			graph.addNode(target, {
+		if (!graph.hasNode(target.href)) {
+			graph.addNode(target.href, {
 				size: config.nodeSize,
-				color: friendLink ? config.friendNodeColor : config.frontierNodeColor,
+				kind: "frontier",
+				origin: target.origin,
+				type: programOf(target),
+				color: nodeColor("frontier", config),
 			});
 		}
 
-		graph.mergeDirectedEdge(source, target, {
+		graph.mergeDirectedEdge(source, target.href, {
 			type: edge.type,
-			color:
-				owner === "local" && edge.type === "internal"
-					? config.localEdgeColor
-					: config.friendEdgeColor,
+			color: edgeColor(graph, source, target.href, config),
 			size: config.edgeSize,
 		});
 	}
+}
+
+function programOf(url: URL): "home" | "circle" {
+	return url.href === `${url.origin}/` ? "home" : "circle";
+}
+
+function nodeColor(kind: NodeKind, config: GraphGardenConfig): string {
+	if (kind === "local") return config.localNodeColor;
+	return kind === "friend" ? config.friendNodeColor : config.frontierNodeColor;
+}
+
+function edgeColor(
+	graph: Graph,
+	source: string,
+	target: string,
+	config: GraphGardenConfig,
+): string {
+	const targetKind: NodeKind = graph.getNodeAttribute(target, "kind");
+	if (targetKind === "frontier") return config.frontierEdgeColor;
+	const local = targetKind === "local" && graph.getNodeAttribute(source, "kind") === "local";
+	return local ? config.localEdgeColor : config.friendEdgeColor;
 }
 
 /**
@@ -326,12 +363,64 @@ function readablePath(path: string): string {
 	}
 }
 
+interface Site {
+	kind: NodeKind;
+	origin: string;
+}
+
+function siteOf(attributes: Record<string, unknown>): Site | null {
+	const { kind, origin } = attributes as { kind: NodeKind; origin: string };
+	return kind === "frontier" ? null : { kind, origin };
+}
+
+function inSite(attributes: Record<string, unknown>, site: Site | null): boolean {
+	return site !== null && attributes.kind === site.kind && attributes.origin === site.origin;
+}
+
 /** Mix `color` toward `background`, opaque since Sigma renders translucent WebGL colours too light. */
-function fade(color: string, background: string): string {
+function fade(color: string, background: string, ratio: number): string {
 	const from = colorToArray(color);
 	const to = colorToArray(background);
-	const [r, g, b] = [0, 1, 2].map((i) => Math.round(from[i] + (to[i] - from[i]) * FADE_RATIO));
+	const [r, g, b] = [0, 1, 2].map((i) => Math.round(from[i] + (to[i] - from[i]) * ratio));
 	return `rgb(${r},${g},${b})`;
+}
+
+/** The hole hides the edges that meet under the node. */
+function createRingProgram(holeColor: string) {
+	const hole = colorToArray(holeColor)
+		.slice(0, 3)
+		.map((channel) => (channel / 255).toFixed(4));
+	// NodeCircleProgram's fragment shader, plus the hole
+	const fragmentShader = /* glsl */ `
+precision highp float;
+
+varying vec4 v_color;
+varying vec2 v_diffVector;
+varying float v_radius;
+
+uniform float u_correctionRatio;
+
+const vec4 transparent = vec4(0.0, 0.0, 0.0, 0.0);
+const vec4 holeColor = vec4(${hole.join(", ")}, 1.0);
+
+void main(void) {
+  float border = u_correctionRatio * 2.0;
+  float dist = length(v_diffVector);
+
+  #ifdef PICKING_MODE
+  gl_FragColor = dist > v_radius ? transparent : v_color;
+  #else
+  float hole = 0.52 * v_radius;
+  vec4 color = mix(v_color, holeColor, 1.0 - smoothstep(hole - border * 0.4, hole + border * 0.4, dist));
+  gl_FragColor = mix(color, transparent, clamp((dist - v_radius + border) / border, 0.0, 1.0));
+  #endif
+}
+`;
+	return class NodeRingProgram extends NodeCircleProgram {
+		getDefinition() {
+			return { ...super.getDefinition(), FRAGMENT_SHADER_SOURCE: fragmentShader };
+		}
+	};
 }
 
 type LabelData = Parameters<NodeLabelDrawingFunction>[1];
@@ -469,7 +558,11 @@ export class GraphGarden extends HTMLElement {
 
 	private loading: AbortController | null = null;
 
-	private hovered: { node: string; labelledNeighbours: Set<string> } | null = null;
+	private hovered: {
+		node: string;
+		labelledNeighbours: Set<string>;
+		site: Site | null;
+	} | null = null;
 
 	private leftCanvasFrom: string | null = null;
 
@@ -537,6 +630,9 @@ export class GraphGarden extends HTMLElement {
 			frontierNodeColor: css("--gg-frontier-node-color", DEFAULT_CONFIG.frontierNodeColor),
 			localEdgeColor: css("--gg-local-edge-color", DEFAULT_CONFIG.localEdgeColor),
 			friendEdgeColor: css("--gg-friend-edge-color", DEFAULT_CONFIG.friendEdgeColor),
+			frontierEdgeColor: css("--gg-frontier-edge-color", DEFAULT_CONFIG.frontierEdgeColor),
+			highlightNodeColor: css("--gg-highlight-node-color", DEFAULT_CONFIG.highlightNodeColor),
+			highlightEdgeColor: css("--gg-highlight-edge-color", DEFAULT_CONFIG.highlightEdgeColor),
 			labelColor: css("--gg-label-color", DEFAULT_CONFIG.labelColor),
 			labelHaloColor: css("--gg-label-halo-color", DEFAULT_CONFIG.labelHaloColor),
 			nodeSize: attr("node-size") ?? DEFAULT_CONFIG.nodeSize,
@@ -558,6 +654,7 @@ export class GraphGarden extends HTMLElement {
 		// Sigma throws without WebGL, as in happy-dom
 		try {
 			this.renderer = new Sigma(graph, this.container, {
+				nodeProgramClasses: { home: createRingProgram(config.labelHaloColor) },
 				edgeProgramClasses: {
 					internal: EdgeRectangleProgram,
 					friend: EdgeRectangleProgram,
@@ -576,21 +673,42 @@ export class GraphGarden extends HTMLElement {
 				nodeReducer: (node, attributes) => {
 					const data = { ...attributes, forceLabel: labelledHubs.has(node) };
 					const hovered = this.hovered;
-					if (hovered === null || node === hovered.node) return data;
+					if (hovered === null) return data;
+					const site = inSite(attributes, hovered.site);
+					const color =
+						site && hovered.site?.kind === "friend" ? config.highlightNodeColor : attributes.color;
+					if (node === hovered.node) return { ...data, color };
 					if (graph.areNeighbors(node, hovered.node)) {
-						return { ...data, forceLabel: hovered.labelledNeighbours.has(node) };
+						return { ...data, color, forceLabel: hovered.labelledNeighbours.has(node) };
 					}
 					return {
 						...data,
 						label: null,
 						forceLabel: false,
-						color: fade(attributes.color, config.labelHaloColor),
+						color: fade(color, config.labelHaloColor, site ? SITE_FADE_RATIO : FADE_RATIO),
 					};
 				},
 				edgeReducer: (edge, attributes) => {
 					const hovered = this.hovered;
-					if (hovered === null || graph.hasExtremity(edge, hovered.node)) return attributes;
-					return { ...attributes, color: fade(attributes.color, config.labelHaloColor) };
+					if (hovered === null) return attributes;
+					const friend = hovered.site?.kind === "friend";
+					if (graph.hasExtremity(edge, hovered.node)) {
+						if (!friend) return attributes;
+						const other = graph.getNodeAttributes(graph.opposite(hovered.node, edge));
+						if (inSite(other, hovered.site)) {
+							return { ...attributes, color: config.highlightEdgeColor };
+						}
+						if (other.kind === "local") return { ...attributes, color: config.localEdgeColor };
+						return attributes;
+					}
+					const site =
+						inSite(graph.getSourceAttributes(edge), hovered.site) &&
+						inSite(graph.getTargetAttributes(edge), hovered.site);
+					const color = site && friend ? config.highlightEdgeColor : attributes.color;
+					return {
+						...attributes,
+						color: fade(color, config.labelHaloColor, site ? SITE_FADE_RATIO : FADE_RATIO),
+					};
 				},
 			});
 
@@ -628,10 +746,15 @@ export class GraphGarden extends HTMLElement {
 		// Sigma emits leaveNode for a finger that crossed off a node too, which we never hovered
 		if (node === (this.hovered?.node ?? null)) return;
 		if (this.container) this.container.style.cursor = node === null ? "default" : "pointer";
+		const graph = this.graph;
 		this.hovered =
-			node === null || this.graph === null
+			node === null || graph === null
 				? null
-				: { node, labelledNeighbours: bestConnected(this.graph, this.graph.neighbors(node)) };
+				: {
+						node,
+						labelledNeighbours: bestConnected(graph, graph.neighbors(node)),
+						site: siteOf(graph.getNodeAttributes(node)),
+					};
 		// Moving between nodes emits leaveNode then enterNode, which share one scheduled render
 		this.renderer?.refresh({ schedule: true });
 	}

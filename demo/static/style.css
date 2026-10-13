@@ -25,6 +25,10 @@
     --ink: #1f2937;
     --muted: #6b7280;
     --rim: #e7e5e4;
+    --link: #1d8a50;
+    /* Link text on the paper and the tint, as --link is under 4.5:1 there */
+    --link-ink: #177543;
+    --link-tint: rgb(29 138 80 / 0.12);
     color-scheme: light;
 }
 
@@ -34,6 +38,17 @@
         --ink: #e7e5e4;
         --muted: #a8a29e;
         --rim: #3a3532;
+        --link: #2fb970;
+        --link-ink: #2fb970;
+        --link-tint: rgb(47 185 112 / 0.16);
+        --gg-local-node-color: #2fb970;
+        --gg-friend-node-color: #fbbf24;
+        --gg-frontier-node-color: #78716c;
+        --gg-highlight-node-color: #d07fbd;
+        --gg-local-edge-color: #288151;
+        --gg-friend-edge-color: #ad851f;
+        --gg-frontier-edge-color: #58524e;
+        --gg-highlight-edge-color: #915b83;
         color-scheme: dark;
     }
 }
@@ -43,6 +58,17 @@
     --ink: #e7e5e4;
     --muted: #a8a29e;
     --rim: #3a3532;
+    --link: #2fb970;
+    --link-ink: #2fb970;
+    --link-tint: rgb(47 185 112 / 0.16);
+    --gg-local-node-color: #2fb970;
+    --gg-friend-node-color: #fbbf24;
+    --gg-frontier-node-color: #78716c;
+    --gg-highlight-node-color: #d07fbd;
+    --gg-local-edge-color: #288151;
+    --gg-friend-edge-color: #ad851f;
+    --gg-frontier-edge-color: #58524e;
+    --gg-highlight-edge-color: #915b83;
     color-scheme: dark;
 }
 
@@ -82,13 +108,49 @@ header {
 nav {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem 1.25rem;
+    gap: 0.25rem;
+}
+
+nav a {
+    padding: 0.1em 0.7em;
+    border-radius: 8px;
+    text-decoration: none;
+}
+
+nav a:hover,
+nav a[aria-current="page"] {
+    color: var(--link-ink);
+    background: var(--link-tint);
 }
 
 a {
     color: inherit;
-    text-decoration-color: var(--rim);
     text-underline-offset: 0.2em;
+    transition:
+        color 0.15s,
+        background-color 0.15s,
+        text-decoration-thickness 0.15s;
+}
+
+a:focus-visible {
+    outline: 2px solid var(--link);
+    outline-offset: 3px;
+}
+
+main a {
+    text-decoration-color: var(--link);
+    text-decoration-thickness: 1.5px;
+}
+
+main a:hover {
+    color: var(--link-ink);
+    text-decoration-thickness: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    a {
+        transition: none;
+    }
 }
 
 .text main {

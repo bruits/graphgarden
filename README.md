@@ -9,7 +9,7 @@ A protocol, and related tools, to turn web rings into explorable node graphs. Fo
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./.github/assets/screenshot_dark.webp" />
-  <img alt="The shared garden at garden.bruits.org, its own pages in green, linked to the pages of Erika, Goulven, Bruits and Maudit in amber, with grey nodes for links that lead to no known page" src="./.github/assets/screenshot.webp" />
+  <img alt="The shared garden at garden.bruits.org, its own pages in green, linked to the pages of Erika, Goulven, Bruits and Maudit in amber, with grey nodes for links that lead to no known page and a ring on each site's home" src="./.github/assets/screenshot.webp" />
 </picture>
 
 ## Acknowledgements

@@ -16,13 +16,14 @@ impl Route for Index {
         ctx.assets.include_script(COMPONENT)?;
 
         Ok(layout(
+            ctx.current_path,
             "GraphGarden",
             "map",
             html! {
                 graph-garden {}
                 p.legend {
-                    "Green nodes are this site's pages, amber ones belong to the sites it gathers "
-                    "and to their friends, and grey ones are links nobody describes yet. "
+                    "Green nodes are this site's pages, amber ones belong to the sites it gathers, "
+                    "and grey ones are links nobody describes yet. A ring marks each site's home. "
                     "Click or tap a node to visit it, and hover it to see its neighbours."
                 }
             },
@@ -34,9 +35,14 @@ impl Route for Index {
 pub struct Tutorial;
 
 impl Route for Tutorial {
-    fn render(&self, _: &mut PageContext) -> impl Into<RenderResult> {
+    fn render(&self, ctx: &mut PageContext) -> impl Into<RenderResult> {
         let tutorial = render_markdown(include_str!("../content/tutorial.md"), None, None, None);
-        layout("Tutorial", "text", html! { (PreEscaped(tutorial)) })
+        layout(
+            ctx.current_path,
+            "Tutorial",
+            "text",
+            html! { (PreEscaped(tutorial)) },
+        )
     }
 }
 
@@ -44,10 +50,11 @@ impl Route for Tutorial {
 pub struct Join;
 
 impl Route for Join {
-    fn render(&self, _: &mut PageContext) -> impl Into<RenderResult> {
+    fn render(&self, ctx: &mut PageContext) -> impl Into<RenderResult> {
         let participants = garden()?.friends;
 
         Ok(layout(
+            ctx.current_path,
             "Join",
             "text",
             html! {

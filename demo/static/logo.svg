@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
     <style>
-        .local { fill: #1d8a50 } .friend { fill: #f59e0b } .bud { fill: #d9607c } .pot { fill: #1f2937 }
+        .local { fill: #1d8a50 } .friend { fill: #f59e0b } .bud { fill: #b955a4 } .pot { fill: #1f2937 }
         @media (prefers-color-scheme: dark) {
-            .local { fill: #2fb970 } .friend { fill: #fbbf24 } .bud { fill: #ee8ba1 } .pot { fill: #e7e5e4 }
+            .local { fill: #2fb970 } .friend { fill: #fbbf24 } .bud { fill: #d07fbd } .pot { fill: #e7e5e4 }
         }
     </style>
     <mask id="bud-ring">

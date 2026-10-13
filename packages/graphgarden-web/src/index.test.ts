@@ -1,5 +1,6 @@
 import { describe, test, expect, vi, afterEach } from "vitest";
 import Graph from "graphology";
+import type { NodeCircleProgram } from "sigma/rendering";
 import { DEFAULT_SETTINGS, type Settings } from "sigma/settings";
 import {
 	isGraphGardenFile,
@@ -172,6 +173,12 @@ function labelData(key: string, label: string | null, tier: string) {
 	return { key, label, tier, x: 100, y: 50, size: 6, color: "#ff0000" };
 }
 
+function shaderDeclarations(source: string, qualifier: string): string[] {
+	return [...source.matchAll(new RegExp(`^${qualifier} (\\w+ \\w+);`, "gm"))].map(
+		(match) => match[1],
+	);
+}
+
 afterEach(() => {
 	document.body.innerHTML = "";
 	renderers.length = 0;
@@ -235,7 +242,7 @@ describe("buildGraph", () => {
 		expect(graph.getAttribute("site")).toEqual({ title: "Local" });
 	});
 
-	test("colours edges and targets by origin", () => {
+	test("colours pages and links by who describes them, grey where nobody does", () => {
 		const graph = buildGraph(
 			makeFile({
 				nodes: [
@@ -254,7 +261,8 @@ describe("buildGraph", () => {
 		const edgeColor = (target: string) =>
 			graph.getEdgeAttribute(graph.directedEdge(LOCAL, target)!, "color");
 		expect(edgeColor(`${LOCAL}about/`)).toBe(DEFAULT_CONFIG.localEdgeColor);
-		expect(edgeColor(FRIEND)).toBe(DEFAULT_CONFIG.friendEdgeColor);
+		expect(edgeColor(`${LOCAL}missing`)).toBe(DEFAULT_CONFIG.frontierEdgeColor);
+		expect(edgeColor(FRIEND)).toBe(DEFAULT_CONFIG.frontierEdgeColor);
 		expect(graph.getNodeAttribute(`${LOCAL}about/`, "color")).toBe(DEFAULT_CONFIG.localNodeColor);
 		expect(graph.getNodeAttribute(`${LOCAL}missing`, "color")).toBe(
 			DEFAULT_CONFIG.frontierNodeColor,
@@ -271,6 +279,31 @@ describe("buildGraph", () => {
 
 		expect(graph.getNodeAttributes(LOCAL)).toMatchObject({ color: "#ff0000", size: 10 });
 		expect(graph.getEdgeAttribute(graph.edges()[0], "size")).toBe(2);
+	});
+
+	test("draws each site's home page as a ring, described or not", () => {
+		const graph = buildGraph(
+			makeFile({
+				nodes: [
+					{ url: "/", title: "Home" },
+					{ url: "/about/", title: "About" },
+					{ url: "/?page=2", title: "Page 2" },
+				],
+				edges: [
+					{ source: "/", target: "https://charlie.test", type: "friend" },
+					{ source: "/", target: "https://charlie.test/blog/", type: "friend" },
+				],
+			}),
+			DEFAULT_CONFIG,
+		);
+
+		expect(Object.fromEntries(graph.mapNodes((node, { type }) => [node, type]))).toEqual({
+			[LOCAL]: "home",
+			[`${LOCAL}about/`]: "circle",
+			[`${LOCAL}?page=2`]: "circle",
+			"https://charlie.test/": "home",
+			"https://charlie.test/blog/": "circle",
+		});
 	});
 
 	test("skips nodes and edges whose URL is not http or https", () => {
@@ -322,6 +355,21 @@ describe("fetchFriendGraphs", () => {
 		expect(graph.getEdgeAttribute(friendEdge, "color")).toBe(DEFAULT_CONFIG.friendEdgeColor);
 	});
 
+	test("recolours the links to a page once a later file describes it", async () => {
+		const graph = buildGraph(
+			makeFile({ friends: [FRIEND], edges: [{ source: "/", target: FRIEND, type: "friend" }] }),
+			DEFAULT_CONFIG,
+		);
+		const link = graph.directedEdge(LOCAL, FRIEND)!;
+		expect(graph.getEdgeAttribute(link, "color")).toBe(DEFAULT_CONFIG.frontierEdgeColor);
+		serve(() => friendFile());
+
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, [FRIEND]);
+
+		expect(graph.getNodeAttribute(FRIEND, "color")).toBe(DEFAULT_CONFIG.friendNodeColor);
+		expect(graph.getEdgeAttribute(link, "color")).toBe(DEFAULT_CONFIG.friendEdgeColor);
+	});
+
 	test("fetches each friend origin once, linked or not", async () => {
 		const fetchMock = serve(() => friendFile());
 
@@ -370,6 +418,9 @@ describe("fetchFriendGraphs", () => {
 
 		expect(graph.order).toBe(2);
 		expect(graph.getNodeAttribute(FRIEND, "color")).toBe(DEFAULT_CONFIG.frontierNodeColor);
+		expect(graph.getEdgeAttribute(graph.edges()[0], "color")).toBe(
+			DEFAULT_CONFIG.frontierEdgeColor,
+		);
 		expect(warn).toHaveBeenCalled();
 	});
 
@@ -391,7 +442,7 @@ describe("fetchFriendGraphs", () => {
 		expect(graph.order).toBe(1);
 	});
 
-	test("colours a friend's links to other sites without recolouring local pages", async () => {
+	test("leaves a friend's links to sites nobody describes in grey", async () => {
 		const charlie = "https://charlie.test/";
 		const graph = buildGraph(makeFile(), DEFAULT_CONFIG);
 		serve(() =>
@@ -405,8 +456,12 @@ describe("fetchFriendGraphs", () => {
 
 		await fetchFriendGraphs(graph, DEFAULT_CONFIG, [FRIEND]);
 
-		expect(graph.getNodeAttribute(charlie, "color")).toBe(DEFAULT_CONFIG.friendNodeColor);
+		const edgeColor = (target: string) =>
+			graph.getEdgeAttribute(graph.directedEdge(FRIEND, target)!, "color");
+		expect(graph.getNodeAttribute(charlie, "color")).toBe(DEFAULT_CONFIG.frontierNodeColor);
+		expect(edgeColor(charlie)).toBe(DEFAULT_CONFIG.frontierEdgeColor);
 		expect(graph.getNodeAttribute(LOCAL, "color")).toBe(DEFAULT_CONFIG.localNodeColor);
+		expect(edgeColor(LOCAL)).toBe(DEFAULT_CONFIG.friendEdgeColor);
 	});
 
 	test("ignores a friend's claims on local pages", async () => {
@@ -698,15 +753,17 @@ describe("<graph-garden>", () => {
 			garden.setAttribute("edge-size", "not-a-number");
 			garden.setAttribute("label-size", "14");
 			garden.style.setProperty("--gg-local-node-color", "#ff0000");
+			garden.style.setProperty("--gg-frontier-edge-color", "#0000ff");
 			garden.style.setProperty("--gg-label-color", "#00ff00");
 		});
 		await element.ready;
 
 		// Both nodes share the only edge, so both keep the base size
 		expect(element.graph!.getNodeAttributes(LOCAL)).toMatchObject({ size: 7, color: "#ff0000" });
-		expect(element.graph!.getEdgeAttribute(element.graph!.edges()[0], "size")).toBe(
-			DEFAULT_CONFIG.edgeSize,
-		);
+		expect(element.graph!.getEdgeAttributes(element.graph!.edges()[0])).toMatchObject({
+			size: DEFAULT_CONFIG.edgeSize,
+			color: "#0000ff",
+		});
 		expect(renderers[0].settings).toMatchObject({
 			labelSize: 14,
 			labelColor: { color: "#00ff00" },
@@ -967,9 +1024,9 @@ describe("<graph-garden> labels and hover", () => {
 			forceLabel: true,
 			color: DEFAULT_CONFIG.localNodeColor,
 		});
-		expect(display(blog)).toMatchObject({ label: null, color: "rgb(221,237,229)" });
+		expect(display(blog)).toMatchObject({ label: null, color: "rgb(176,214,194)" });
 		expect(edgeColor(LOCAL, about)).toBe(DEFAULT_CONFIG.localEdgeColor);
-		expect(edgeColor(blog, about)).toBe("rgb(233,244,238)");
+		expect(edgeColor(blog, about)).toBe("rgb(204,228,215)");
 
 		renderer.handlers.get("leaveNode")!({ node: LOCAL, event: pointer("mousemove") });
 
@@ -989,8 +1046,155 @@ describe("<graph-garden> labels and hover", () => {
 
 		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
 
-		expect(settings.nodeReducer!(blog, graph.getNodeAttributes(blog)).color).toBe("rgb(17,40,48)");
-		expect(settings.edgeReducer!(edge, graph.getEdgeAttributes(edge)).color).toBe("rgb(29,46,57)");
+		expect(settings.nodeReducer!(blog, graph.getNodeAttributes(blog)).color).toBe("rgb(20,63,55)");
+		expect(settings.edgeReducer!(edge, graph.getEdgeAttributes(edge)).color).toBe("rgb(48,78,77)");
+	});
+
+	test("turns a hovered friend page's site to the highlight colours", async () => {
+		const other = "https://other.test/";
+		const charlie = "https://charlie.test/";
+		serve((url) => {
+			if (url.startsWith(FRIEND)) {
+				return friendFile({
+					nodes: [
+						{ url: "/", title: "Friend Home" },
+						{ url: "/blog/", title: "Friend Blog" },
+						{ url: "/notes/", title: "Friend Notes" },
+					],
+					edges: [
+						{ source: "/blog/", target: "/", type: "internal" },
+						{ source: "/blog/", target: LOCAL, type: "friend" },
+						{ source: "/blog/", target: other, type: "friend" },
+						{ source: "/blog/", target: charlie, type: "friend" },
+						{ source: "/blog/", target: "/draft/", type: "internal" },
+						{ source: "/notes/", target: "/", type: "internal" },
+						{ source: "/notes/", target: "/gone/", type: "internal" },
+					],
+				});
+			}
+			if (url.startsWith(other)) return makeFile({ base_url: other, site: { title: "Other" } });
+			return makeFile({
+				friends: [FRIEND, other],
+				nodes: [
+					{ url: "/", title: "Home" },
+					{ url: "/about/", title: "About" },
+				],
+				edges: [
+					{ source: "/", target: FRIEND, type: "friend" },
+					{ source: "/", target: `${FRIEND}blog/`, type: "friend" },
+					{ source: "/about/", target: "/", type: "internal" },
+				],
+			});
+		});
+		const element = mount();
+		await element.ready;
+		const graph = element.graph!;
+		const { nodeReducer, edgeReducer } = renderers[0].settings;
+		const nodeColor = (key: string) => nodeReducer!(key, graph.getNodeAttributes(key)).color;
+		const edgeColor = (source: string, target: string) => {
+			const edge = graph.directedEdge(source, target)!;
+			return edgeReducer!(edge, graph.getEdgeAttributes(edge)).color;
+		};
+		const blog = `${FRIEND}blog/`;
+		const notes = `${FRIEND}notes/`;
+		expect(edgeColor(LOCAL, blog)).toBe(DEFAULT_CONFIG.friendEdgeColor);
+
+		renderers[0].handlers.get("enterNode")!({ node: blog, event: pointer("mousemove") });
+
+		expect(nodeColor(blog)).toBe(DEFAULT_CONFIG.highlightNodeColor);
+		expect(nodeColor(FRIEND)).toBe(DEFAULT_CONFIG.highlightNodeColor);
+		expect(edgeColor(blog, FRIEND)).toBe(DEFAULT_CONFIG.highlightEdgeColor);
+		expect(nodeColor(notes)).toBe("rgb(231,196,223)");
+		expect(edgeColor(notes, FRIEND)).toBe("rgb(239,216,234)");
+		expect(nodeColor(LOCAL)).toBe(DEFAULT_CONFIG.localNodeColor);
+		expect(edgeColor(blog, LOCAL)).toBe(DEFAULT_CONFIG.localEdgeColor);
+		expect(edgeColor(LOCAL, blog)).toBe(DEFAULT_CONFIG.localEdgeColor);
+		expect(nodeColor(other)).toBe(DEFAULT_CONFIG.friendNodeColor);
+		expect(edgeColor(blog, other)).toBe(DEFAULT_CONFIG.friendEdgeColor);
+		expect(nodeColor(charlie)).toBe(DEFAULT_CONFIG.frontierNodeColor);
+		expect(edgeColor(blog, charlie)).toBe(DEFAULT_CONFIG.frontierEdgeColor);
+		// A page of its origin that its file does not describe is a frontier page, outside the site
+		expect(nodeColor(`${FRIEND}draft/`)).toBe(DEFAULT_CONFIG.frontierNodeColor);
+		expect(edgeColor(blog, `${FRIEND}draft/`)).toBe(DEFAULT_CONFIG.frontierEdgeColor);
+		expect(nodeColor(`${FRIEND}gone/`)).toBe("rgb(240,241,243)");
+		expect(edgeColor(notes, `${FRIEND}gone/`)).toBe("rgb(243,244,245)");
+		expect(nodeColor(`${LOCAL}about/`)).toBe("rgb(221,237,229)");
+		expect(edgeColor(LOCAL, FRIEND)).toBe("rgb(254,245,222)");
+	});
+
+	test("fades a page of the local origin that nothing describes like the rest of the graph", async () => {
+		serve(() =>
+			makeFile({
+				nodes: [
+					{ url: "/", title: "Home" },
+					{ url: "/about/", title: "About" },
+				],
+				edges: [
+					{ source: "/", target: "/about/", type: "internal" },
+					{ source: "/about/", target: "/draft/", type: "internal" },
+				],
+			}),
+		);
+		const element = mount();
+		await element.ready;
+		const graph = element.graph!;
+		const { nodeReducer, edgeReducer } = renderers[0].settings;
+		const draft = `${LOCAL}draft/`;
+		const edge = graph.directedEdge(`${LOCAL}about/`, draft)!;
+
+		renderers[0].handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
+
+		expect(nodeReducer!(draft, graph.getNodeAttributes(draft)).color).toBe("rgb(240,241,243)");
+		expect(edgeReducer!(edge, graph.getEdgeAttributes(edge)).color).toBe("rgb(243,244,245)");
+	});
+
+	test("recolours nothing around a hovered frontier page", async () => {
+		const { element, renderer, settings } = await render();
+		const graph = element.graph!;
+		const charlie = "https://charlie.test/";
+		const blog = `${LOCAL}blog/`;
+		const edge = graph.directedEdge(LOCAL, charlie)!;
+
+		renderer.handlers.get("enterNode")!({ node: charlie, event: pointer("mousemove") });
+
+		expect(settings.nodeReducer!(charlie, graph.getNodeAttributes(charlie)).color).toBe(
+			DEFAULT_CONFIG.frontierNodeColor,
+		);
+		expect(settings.edgeReducer!(edge, graph.getEdgeAttributes(edge)).color).toBe(
+			DEFAULT_CONFIG.frontierEdgeColor,
+		);
+		expect(settings.nodeReducer!(blog, graph.getNodeAttributes(blog)).color).toBe(
+			"rgb(221,237,229)",
+		);
+	});
+
+	test("draws home pages as rings whose hole takes the halo colour", async () => {
+		const { settings } = await render((garden) => {
+			garden.style.setProperty("--gg-label-halo-color", "#336699");
+		});
+		// Sigma instantiates programs with a WebGL context, which happy-dom lacks
+		const ring = Object.create(settings.nodeProgramClasses.home.prototype) as NodeCircleProgram;
+
+		const { FRAGMENT_SHADER_SOURCE } = ring.getDefinition();
+
+		expect(FRAGMENT_SHADER_SOURCE).toContain("vec4(0.2000, 0.4000, 0.6000, 1.0)");
+	});
+
+	// The ring reuses the circle's vertex shader, which a Sigma update could change without a WebGL test noticing
+	test("keeps the ring shader linkable with Sigma's circle vertex shader", async () => {
+		const { settings } = await render();
+		const ring = Object.create(settings.nodeProgramClasses.home.prototype) as NodeCircleProgram;
+
+		const { FRAGMENT_SHADER_SOURCE, VERTEX_SHADER_SOURCE, UNIFORMS } = ring.getDefinition();
+
+		const varyings = shaderDeclarations(FRAGMENT_SHADER_SOURCE, "varying");
+		expect(varyings).toEqual(["vec4 v_color", "vec2 v_diffVector", "float v_radius"]);
+		for (const varying of varyings) {
+			expect(shaderDeclarations(VERTEX_SHADER_SOURCE, "varying")).toContain(varying);
+		}
+		for (const uniform of shaderDeclarations(FRAGMENT_SHADER_SOURCE, "uniform")) {
+			expect(UNIFORMS).toContain(uniform.split(" ")[1]);
+		}
 	});
 
 	test("redraws its labels once the page fonts have loaded", async () => {

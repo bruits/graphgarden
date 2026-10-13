@@ -2,8 +2,9 @@ use maud::{DOCTYPE, Markup, html};
 
 pub const REPOSITORY: &str = "https://github.com/bruits/graphgarden";
 
-/// Wraps `main` in the page shell. `shape` is `map` for the full-window graph, `text` otherwise.
-pub fn layout(title: &str, shape: &str, main: Markup) -> Markup {
+/// Wraps `main` in the page shell. `path` marks the current page in the menu, and `shape` is `map`
+/// for the full-window graph, `text` otherwise.
+pub fn layout(path: &str, title: &str, shape: &str, main: Markup) -> Markup {
     html! {
         (DOCTYPE)
         html lang="en" {
@@ -28,9 +29,9 @@ pub fn layout(title: &str, shape: &str, main: Markup) -> Markup {
                             "GraphGarden"
                         }
                         nav {
-                            a href="/tutorial/" { "Tutorial" }
-                            a href="/join/" { "Join" }
-                            a href=(REPOSITORY) { "GitHub" }
+                            @for (href, label) in [("/tutorial/", "Tutorial"), ("/join/", "Join"), (REPOSITORY, "GitHub")] {
+                                a href=(href) aria-current=[(href == path).then_some("page")] { (label) }
+                            }
                         }
                     }
                     main { (main) }
