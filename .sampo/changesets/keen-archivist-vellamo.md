@@ -2,4 +2,4 @@
 cargo/graphgarden-core: minor
 ---
 
-**⚠️ breaking change:** Changed the `ConfigRead`, `FileRead`, `InvalidBaseUrl`, `InvalidFriendUrl` and `HtmlParse` errors to named fields, added `Error::InvalidSelector` and removed `Error::FileWrite`. `ParseConfig::exclude` and `ParseConfig::exclude_selectors` are now `Vec<String>`. `extract_page(html, page_url, base_url, friends, exclude_selectors)` is replaced by `Extractor::new(base_url, friends, exclude_selectors)?.extract_page(html, page_url)`.
+**⚠️ breaking change:** Changed `extract_page` to `Extractor::new(base_url, friends, exclude_selectors)?.extract_page(html, page_url)`, and the `ParseConfig` exclusion lists to `Vec<String>`. Changed several `Error` variants to named fields, with a new `InvalidSelector`, no more `FileWrite`, and a `ConfigParse` that wraps the `toml` 1.x error.
