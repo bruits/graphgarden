@@ -31,7 +31,7 @@ The front page reads the participants' files live. These query parameters make i
 
 `pnpm run capture`, from the repository root, builds the component and the site, then takes the README screenshots in both themes with headless Chrome and writes them to `.github/assets/` with `cwebp`. It needs Chrome and `cwebp` installed. Set `CHROME` to the browser binary when it is not at the macOS default (`google-chrome` elsewhere), and pass a seed to try another layout, e.g. `pnpm run capture 12`.
 
-To add or refresh a copy, fetch the participant's file, e.g. `curl -o static/captures/erika.florist.json https://erika.florist/.well-known/graphgarden.json`. A new copy changes the layout, so compare a few seeds and set the one with the fewest label overlaps as the default in `capture.mjs`.
+To add or refresh a copy, fetch the participant's file, e.g. `curl -o static/captures/erika.florist.json https://erika.florist/.well-known/graphgarden.json`. A new copy changes the layout, so compare a few seeds and set the one that shows the most labels as the default in `capture.mjs`.
 
 ## Font
 

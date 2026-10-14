@@ -13,12 +13,20 @@ const WELL_KNOWN_PATH = "/.well-known/graphgarden.json";
 const FETCH_TIMEOUT_MS = 10_000;
 // Below this order, Barnes-Hut costs more per iteration than the exact computation
 const BARNES_HUT_MIN_ORDER = 1000;
+// Pulls groups closer, so each fills more of the fitted map
+const LAYOUT_GRAVITY = 0.25;
 const TIER_SCALES = { small: 1, medium: 1.5, large: 2 };
 const FADE_RATIO = 0.85;
 const SITE_FADE_RATIO = 0.65;
 const MUTED_LABEL_ALPHA = 0.7;
-// Forced labels skip Sigma's label grid, so too many would overlap
-const FORCED_LABEL_CAP = 15;
+const SHORT_LABEL_LENGTH = 30;
+const TITLE_SEPARATORS = [" - ", " – ", " — ", " | ", " · "];
+const LABEL_MARGIN = { x: 6, y: 3 };
+// Sigma's private X_LABEL_MARGIN and Y_LABEL_MARGIN, how far off the view a node's centre may lie
+// and still have its label drawn
+const SIGMA_LABEL_REACH = { x: 150, y: 50 };
+// Some room around the whole map, past which zooming out would only pack it tighter
+const MAX_CAMERA_RATIO = 1.5;
 
 export interface GraphGardenConfig {
 	localNodeColor: string;
@@ -163,13 +171,15 @@ function mergeFile(
 		const url = parseHttpUrl(node.url, file.base_url);
 		if (url === null || url.origin !== origin) continue;
 		declared.add(url.href);
+		const type = programOf(url);
 		graph.mergeNode(url.href, {
 			title: node.title,
-			label: node.title,
+			// A home page keeps the site's name, which its label alone carries
+			label: shortLabel(node.title, type === "home" ? undefined : file.site.title),
 			size: config.nodeSize,
 			kind: owner,
 			origin,
-			type: programOf(url),
+			type,
 			color: nodeColor(owner, config),
 		});
 		// An earlier file may have linked here while nobody described the page
@@ -201,6 +211,41 @@ function mergeFile(
 	}
 }
 
+/** Drops the site's name from a page title, then cuts it at a word near `SHORT_LABEL_LENGTH`. */
+function shortLabel(title: string, siteTitle?: string): string {
+	const label = siteTitle ? withoutSiteTitle(title, siteTitle) : title;
+	// A string holds at least as many UTF-16 code units as characters
+	if (label.length <= SHORT_LABEL_LENGTH) return label;
+	const segments = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(label);
+	const characters = Array.from(segments, ({ segment }) => segment);
+	if (characters.length <= SHORT_LABEL_LENGTH) return label;
+	const cut = characters.slice(0, SHORT_LABEL_LENGTH).join("");
+	// The cut may fall right after a word, or inside one
+	const space = /[\s\p{P}]/u.test(characters[SHORT_LABEL_LENGTH])
+		? cut.length
+		: cut.search(/\s\S*$/);
+	const words = space >= cut.length / 2 ? cut.slice(0, space) : cut;
+	return `${words.replace(/[\s\p{P}]+$/u, "")}…`;
+}
+
+function withoutSiteTitle(title: string, siteTitle: string): string {
+	for (const separator of TITLE_SEPARATORS) {
+		const suffix = `${separator}${siteTitle}`;
+		if (title.length > suffix.length && sameText(title.slice(-suffix.length), suffix)) {
+			return title.slice(0, -suffix.length);
+		}
+		const prefix = `${siteTitle}${separator}`;
+		if (title.length > prefix.length && sameText(title.slice(0, prefix.length), prefix)) {
+			return title.slice(prefix.length);
+		}
+	}
+	return title;
+}
+
+function sameText(a: string, b: string): boolean {
+	return a.toLowerCase() === b.toLowerCase();
+}
+
 function programOf(url: URL): "home" | "circle" {
 	return url.href === `${url.origin}/` ? "home" : "circle";
 }
@@ -225,6 +270,9 @@ function edgeColor(
 /**
  * Assign random initial positions then run ForceAtlas2 to compute
  * a stable layout. Mutates node `x`/`y` attributes in place.
+ *
+ * A group of nodes linked to nothing else is laid out beside the best connected node sharing its
+ * `origin` attribute, through edges added for the layout and dropped before it returns.
  */
 export function assignLayout(graph: Graph, iterations = defaultIterations(graph.order)): void {
 	if (graph.order === 0) return;
@@ -237,13 +285,75 @@ export function assignLayout(graph: Graph, iterations = defaultIterations(graph.
 		});
 	});
 
-	forceAtlas2.assign(graph, {
-		iterations,
-		settings: {
-			...forceAtlas2.inferSettings(graph),
-			barnesHutOptimize: graph.order >= BARNES_HUT_MIN_ORDER,
-		},
+	// Linked to nothing else, a page or group would drift off and shrink the map Sigma fits to its frame
+	const anchors = anchorStrayComponents(graph);
+	try {
+		forceAtlas2.assign(graph, {
+			iterations,
+			settings: {
+				...forceAtlas2.inferSettings(graph),
+				barnesHutOptimize: graph.order >= BARNES_HUT_MIN_ORDER,
+				gravity: LAYOUT_GRAVITY,
+			},
+		});
+	} finally {
+		for (const edge of anchors) graph.dropEdge(edge);
+	}
+}
+
+/**
+ * Links each connected component but the largest to its site's best anchor in the largest,
+ * through the component's own best anchor of that site. Returns the added edges.
+ */
+function anchorStrayComponents(graph: Graph): string[] {
+	const components = connectedComponents(graph);
+	const largest = components.reduce((a, b) => (b.length > a.length ? b : a));
+	const hubs = new Map<unknown, string>();
+	for (const node of largest) {
+		const origin: unknown = graph.getNodeAttribute(node, "origin");
+		const hub = hubs.get(origin);
+		if (hub === undefined || isBetterAnchor(graph, node, hub)) hubs.set(origin, node);
+	}
+
+	const anchors: string[] = [];
+	for (const component of components) {
+		if (component === largest) continue;
+		let anchor: [node: string, hub: string] | undefined;
+		for (const node of component) {
+			const hub = hubs.get(graph.getNodeAttribute(node, "origin"));
+			if (hub === undefined) continue;
+			if (anchor === undefined || isBetterAnchor(graph, node, anchor[0])) anchor = [node, hub];
+		}
+		if (anchor !== undefined) anchors.push(graph.addEdge(...anchor));
+	}
+	return anchors;
+}
+
+/** Nodes grouped by connected component, whatever the edges' direction. */
+function connectedComponents(graph: Graph): string[][] {
+	const seen = new Set<string>();
+	const components: string[][] = [];
+	graph.forEachNode((start) => {
+		if (seen.has(start)) return;
+		seen.add(start);
+		const component = [start];
+		for (let i = 0; i < component.length; i++) {
+			graph.forEachNeighbor(component[i], (neighbour) => {
+				if (seen.has(neighbour)) return;
+				seen.add(neighbour);
+				component.push(neighbour);
+			});
+		}
+		components.push(component);
 	});
+	return components;
+}
+
+/** A page some file describes beats a frontier one, which may belong to another site, then the better connected wins. */
+function isBetterAnchor(graph: Graph, node: string, than: string): boolean {
+	const described = graph.getNodeAttribute(node, "kind") !== "frontier";
+	if (described !== (graph.getNodeAttribute(than, "kind") !== "frontier")) return described;
+	return graph.degreeWithoutSelfLoops(node) > graph.degreeWithoutSelfLoops(than);
 }
 
 /** Fewer iterations as the graph grows, so the synchronous layout stays around half a second. */
@@ -269,15 +379,6 @@ export function assignNodeSizes(graph: Graph, nodeSize: number): void {
 		const tier = degree > ninthDecile ? "large" : degree > median ? "medium" : "small";
 		graph.mergeNodeAttributes(node, { tier, size: nodeSize * TIER_SCALES[tier] });
 	});
-}
-
-function bestConnected(graph: Graph, nodes: string[]): Set<string> {
-	// An untitled node draws no label, so a forced slot on it would be wasted
-	const titled = nodes.filter((node) => graph.getNodeAttribute(node, "label"));
-	const byDegree = titled.toSorted(
-		(a, b) => graph.degreeWithoutSelfLoops(b) - graph.degreeWithoutSelfLoops(a),
-	);
-	return new Set(byDegree.slice(0, FORCED_LABEL_CAP));
 }
 
 /** The `q` quantile of non-empty ascending `sorted`, interpolated between its closest ranks. */
@@ -423,91 +524,143 @@ void main(void) {
 	};
 }
 
-type LabelData = Parameters<NodeLabelDrawingFunction>[1];
 type LabelSettings = Parameters<NodeLabelDrawingFunction>[2];
 
-interface TextStyle {
+interface Typeset {
+	text: string;
 	font: string;
 	letterSpacing: string;
-	ink: string;
-	alpha: number;
 }
 
 function drawHaloText(
 	context: CanvasRenderingContext2D,
-	text: string,
+	line: Typeset,
 	x: number,
 	top: number,
 	halo: string,
-	style: TextStyle,
+	ink: string,
+	alpha: number,
 ): void {
 	// Sigma draws every label on one shared context
 	context.save();
-	context.font = style.font;
-	context.letterSpacing = style.letterSpacing;
+	context.font = line.font;
+	context.letterSpacing = line.letterSpacing;
 	context.textAlign = "center";
 	context.textBaseline = "top";
 	context.lineJoin = "round";
 	context.lineWidth = 4;
 	context.strokeStyle = halo;
-	context.strokeText(text, x, top);
-	context.fillStyle = style.ink;
-	context.globalAlpha = style.alpha;
-	context.fillText(text, x, top);
+	context.strokeText(line.text, x, top);
+	context.fillStyle = ink;
+	context.globalAlpha = alpha;
+	context.fillText(line.text, x, top);
 	context.restore();
 }
 
-/** Returns where the line below the label starts. */
-function drawMapLabel(
-	context: CanvasRenderingContext2D,
-	data: LabelData,
-	settings: LabelSettings,
-	text: string,
-	halo: string,
-	emphasised: boolean,
-): number {
-	const large = data.tier === "large";
-	const small = data.tier === "small";
+function typesetLabel(text: string, tier: unknown, settings: LabelSettings): Typeset {
+	const large = tier === "large";
 	const size = large ? settings.labelSize * 0.9 : settings.labelSize;
-	const top = labelTop(data);
-	drawHaloText(context, large ? text.toUpperCase() : text, data.x, top, halo, {
-		font: `${small ? "italic " : ""}${large ? 600 : 400} ${size}px ${settings.labelFont}`,
+	return {
+		text: large ? text.toUpperCase() : text,
+		font: `${tier === "small" ? "italic " : ""}${large ? 600 : 400} ${size}px ${settings.labelFont}`,
 		letterSpacing: large ? `${size / 10}px` : "0px",
-		ink: settings.labelColor.color ?? "#000",
-		alpha: small && !emphasised ? MUTED_LABEL_ALPHA : 1,
-	});
-	return top + settings.labelSize + 3;
-}
-
-function labelTop(data: LabelData): number {
-	return data.y + data.size + 4;
-}
-
-/** Keeps its letter case, since paths are case-sensitive. */
-function drawDestination(
-	context: CanvasRenderingContext2D,
-	data: LabelData,
-	settings: LabelSettings,
-	text: string,
-	top: number,
-	halo: string,
-	alpha: number,
-): void {
-	drawHaloText(context, text, data.x, top, halo, {
-		font: `italic 400 ${settings.labelSize * 0.9}px ${settings.labelFont}`,
-		letterSpacing: "0px",
-		ink: settings.labelColor.color ?? "#000",
-		alpha,
-	});
-}
-
-function mapLabelDrawer(halo: string): NodeLabelDrawingFunction {
-	return (context, data, settings) => {
-		if (data.label) drawMapLabel(context, data, settings, data.label, halo, false);
 	};
 }
 
-/** Redraws the label glyph for glyph over the idle one, in full ink. */
+/** Keeps its letter case, since paths are case-sensitive. */
+function typesetDestination(text: string, settings: LabelSettings): Typeset {
+	return {
+		text,
+		font: `italic 400 ${settings.labelSize * 0.9}px ${settings.labelFont}`,
+		letterSpacing: "0px",
+	};
+}
+
+function hoverLines(
+	key: string,
+	node: Record<string, unknown>,
+	settings: LabelSettings,
+	localOrigin: string | undefined,
+): Typeset[] {
+	const destination = typesetDestination(destinationOf(key, localOrigin), settings);
+	const title = typeof node.title === "string" ? node.title : "";
+	return title ? [typesetLabel(title, node.tier, settings), destination] : [destination];
+}
+
+function labelTop(node: { y: number; size: number }): number {
+	return node.y + node.size + 4;
+}
+
+function lineHeight(settings: LabelSettings): number {
+	return settings.labelSize + 3;
+}
+
+interface LabelBox {
+	left: number;
+	right: number;
+	top: number;
+	bottom: number;
+}
+
+/** The room `lines` lines `width` wide take, margin included, centred on `x` from `top` down. */
+function labelBox(
+	width: number,
+	lines: number,
+	x: number,
+	top: number,
+	settings: LabelSettings,
+): LabelBox {
+	return {
+		left: x - width / 2 - LABEL_MARGIN.x,
+		right: x + width / 2 + LABEL_MARGIN.x,
+		top: top - LABEL_MARGIN.y,
+		bottom: top + lines * lineHeight(settings) + LABEL_MARGIN.y,
+	};
+}
+
+function textWidth(context: CanvasRenderingContext2D, line: Typeset): number {
+	context.save();
+	context.font = line.font;
+	context.letterSpacing = line.letterSpacing;
+	const { width } = context.measureText(line.text);
+	context.restore();
+	return width;
+}
+
+function overlaps(a: LabelBox, b: LabelBox): boolean {
+	return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+}
+
+/** Keeps each box, in order, that overlaps none of `taken` and none kept before it. */
+function placeApart(candidates: { node: string; box: LabelBox }[], taken: LabelBox[]): Set<string> {
+	const boxes = [...taken];
+	const placed = new Set<string>();
+	for (const { node, box } of candidates) {
+		if (boxes.some((other) => overlaps(other, box))) continue;
+		boxes.push(box);
+		placed.add(node);
+	}
+	return placed;
+}
+
+function mapLabelDrawer(
+	halo: string,
+	placed: (context: CanvasRenderingContext2D, settings: LabelSettings) => Set<string>,
+): NodeLabelDrawingFunction {
+	return (context, data, settings) => {
+		if (!data.label || !placed(context, settings).has(data.key)) return;
+		drawHaloText(
+			context,
+			typesetLabel(data.label, data.tier, settings),
+			data.x,
+			labelTop(data),
+			halo,
+			settings.labelColor.color ?? "#000",
+			data.tier === "small" ? MUTED_LABEL_ALPHA : 1,
+		);
+	};
+}
+
 function mapHoverDrawer(
 	halo: string,
 	localOrigin: string | undefined,
@@ -525,13 +678,12 @@ function mapHoverDrawer(
 		context.stroke();
 		context.restore();
 
-		const destination = destinationOf(data.key, localOrigin);
-		if (!data.label) {
-			drawDestination(context, data, settings, destination, labelTop(data), halo, 1);
-			return;
+		let top = labelTop(data);
+		for (const [i, line] of hoverLines(data.key, data, settings, localOrigin).entries()) {
+			const ink = settings.labelColor.color ?? "#000";
+			drawHaloText(context, line, data.x, top, halo, ink, i === 0 ? 1 : MUTED_LABEL_ALPHA);
+			top += lineHeight(settings);
 		}
-		const next = drawMapLabel(context, data, settings, data.label, halo, true);
-		drawDestination(context, data, settings, destination, next, halo, MUTED_LABEL_ALPHA);
 	};
 }
 
@@ -558,13 +710,15 @@ export class GraphGarden extends HTMLElement {
 
 	private loading: AbortController | null = null;
 
-	private hovered: {
-		node: string;
-		labelledNeighbours: Set<string>;
-		site: Site | null;
-	} | null = null;
+	private hovered: { node: string; site: Site | null } | null = null;
 
 	private leftCanvasFrom: string | null = null;
+
+	/** The labels drawn in the current frame, placed when Sigma draws its first one. */
+	private placedLabels: Set<string> | null = null;
+
+	/** Each label's measured width, kept until the page fonts load. */
+	private labelWidths = new Map<string, number>();
 
 	connectedCallback(): void {
 		const style = document.createElement("style");
@@ -587,6 +741,8 @@ export class GraphGarden extends HTMLElement {
 		this.renderer = null;
 		this.hovered = null;
 		this.leftCanvasFrom = null;
+		this.placedLabels = null;
+		this.labelWidths.clear();
 
 		this.graph?.clear();
 		this.graph = null;
@@ -607,7 +763,7 @@ export class GraphGarden extends HTMLElement {
 			assignNodeSizes(graph, config.nodeSize);
 			assignLayout(graph, config.iterations);
 			this.graph = graph;
-			this.initRenderer(config);
+			this.initRenderer(config, signal);
 		} catch (error) {
 			if (!signal.aborted) console.error("<graph-garden> could not load the graph:", error);
 		}
@@ -642,14 +798,9 @@ export class GraphGarden extends HTMLElement {
 		};
 	}
 
-	private initRenderer(config: GraphGardenConfig): void {
+	private initRenderer(config: GraphGardenConfig, signal: AbortSignal): void {
 		const graph = this.graph;
 		if (!graph || !this.container) return;
-		// Sigma's label grid would otherwise hide some large nodes' labels
-		const labelledHubs = bestConnected(
-			graph,
-			graph.filterNodes((_node, attributes) => attributes.tier === "large"),
-		);
 
 		// Sigma throws without WebGL, as in happy-dom
 		try {
@@ -664,27 +815,31 @@ export class GraphGarden extends HTMLElement {
 				labelSize: config.labelSize,
 				labelFont: getComputedStyle(this).fontFamily || "sans-serif",
 				renderEdgeLabels: false,
-				defaultDrawNodeLabel: mapLabelDrawer(config.labelHaloColor),
+				// Zoomed out, nodes shrink with the map, so the smaller ones drop their labels
+				zoomToSizeRatioFunction: (ratio) => (ratio > 1 ? ratio : Math.sqrt(ratio)),
+				maxCameraRatio: MAX_CAMERA_RATIO,
+				defaultDrawNodeLabel: mapLabelDrawer(
+					config.labelHaloColor,
+					(context, settings) => (this.placedLabels ??= this.placeLabels(context, settings)),
+				),
 				defaultDrawNodeHover: mapHoverDrawer(
 					config.labelHaloColor,
 					localOriginOf(graph),
 					() => this.hovered?.node ?? null,
 				),
 				nodeReducer: (node, attributes) => {
-					const data = { ...attributes, forceLabel: labelledHubs.has(node) };
+					// Sigma's label grid would hide labels that `placeLabels` keeps, so every label skips it
+					const data = { ...attributes, forceLabel: Boolean(attributes.label) };
 					const hovered = this.hovered;
 					if (hovered === null) return data;
 					const site = inSite(attributes, hovered.site);
 					const color =
 						site && hovered.site?.kind === "friend" ? config.highlightNodeColor : attributes.color;
-					if (node === hovered.node) return { ...data, color };
-					if (graph.areNeighbors(node, hovered.node)) {
-						return { ...data, color, forceLabel: hovered.labelledNeighbours.has(node) };
+					if (node === hovered.node || graph.areNeighbors(node, hovered.node)) {
+						return { ...data, color };
 					}
 					return {
 						...data,
-						label: null,
-						forceLabel: false,
 						color: fade(color, config.labelHaloColor, site ? SITE_FADE_RATIO : FADE_RATIO),
 					};
 				},
@@ -712,6 +867,13 @@ export class GraphGarden extends HTMLElement {
 				},
 			});
 
+			this.renderer.on("beforeRender", () => {
+				this.placedLabels = null;
+			});
+			// Sigma draws its first frame inside its constructor, before `placeLabels` can read it. A second
+			// frame, which reprocesses nothing, has the labels drawn by the time `ready` settles.
+			this.renderer.refresh({ partialGraph: { nodes: [] }, skipIndexation: true });
+
 			this.renderer.on("clickNode", ({ node }) => {
 				if (parseHttpUrl(node)) window.location.href = node;
 			});
@@ -733,13 +895,75 @@ export class GraphGarden extends HTMLElement {
 				if (node !== null) this.hover(node);
 			});
 
-			// Canvas text drawn before its web font loads keeps the fallback font. happy-dom has no FontFaceSet.
-			void document.fonts?.ready
-				.then(() => this.renderer?.refresh())
-				.catch((error: unknown) => console.warn("<graph-garden> could not redraw labels:", error));
+			// Canvas draws and measures text in a fallback font until its face loads, which a weight or style
+			// the page itself does not use only starts on first use. happy-dom has no FontFaceSet.
+			document.fonts?.addEventListener(
+				"loadingdone",
+				() => {
+					this.labelWidths.clear();
+					this.renderer?.refresh({ schedule: true });
+				},
+				{ signal },
+			);
 		} catch (error) {
 			console.warn("<graph-garden> could not initialize Sigma renderer:", error);
 		}
+	}
+
+	/**
+	 * Places the labels of better connected nodes first, and hides any that would overlap one already
+	 * placed. Around a hovered node, only the neighbours placed at rest keep theirs, clear of its title.
+	 */
+	private placeLabels(context: CanvasRenderingContext2D, settings: LabelSettings): Set<string> {
+		const { renderer, graph, hovered } = this;
+		if (renderer === null || graph === null) return new Set();
+		const { width, height } = renderer.getDimensions();
+		const view = { left: 0, right: width, top: 0, bottom: height };
+		const reach = {
+			left: -SIGMA_LABEL_REACH.x,
+			right: width + SIGMA_LABEL_REACH.x,
+			top: -SIGMA_LABEL_REACH.y,
+			bottom: height + SIGMA_LABEL_REACH.y,
+		};
+
+		const candidates: { node: string; degree: number; box: LabelBox }[] = [];
+		graph.forEachNode((node, attributes) => {
+			const data = renderer.getNodeDisplayData(node);
+			if (!data?.label || data.hidden) return;
+			const size = renderer.scaleSize(data.size);
+			if (attributes.tier !== "large" && size < settings.labelRenderedSizeThreshold) return;
+			const { x, y } = renderer.framedGraphToViewport(data);
+			// A label Sigma never draws must take no room
+			if (x < reach.left || x > reach.right || y < reach.top || y > reach.bottom) return;
+			let labelWidth = this.labelWidths.get(node);
+			if (labelWidth === undefined) {
+				labelWidth = textWidth(context, typesetLabel(data.label, attributes.tier, settings));
+				this.labelWidths.set(node, labelWidth);
+			}
+			const box = labelBox(labelWidth, 1, x, labelTop({ y, size }), settings);
+			if (!overlaps(box, view)) return;
+			candidates.push({ node, degree: graph.degreeWithoutSelfLoops(node), box });
+		});
+		candidates.sort((a, b) => b.degree - a.degree || (a.node < b.node ? -1 : 1));
+
+		const atRest = placeApart(candidates, []);
+		if (hovered === null) return atRest;
+		const neighbours = candidates.filter(
+			({ node }) =>
+				atRest.has(node) && node !== hovered.node && graph.areNeighbors(node, hovered.node),
+		);
+		const data = renderer.getNodeDisplayData(hovered.node);
+		if (data === undefined) return placeApart(neighbours, []);
+		const { x, y } = renderer.framedGraphToViewport(data);
+		const lines = hoverLines(
+			hovered.node,
+			graph.getNodeAttributes(hovered.node),
+			settings,
+			localOriginOf(graph),
+		);
+		const top = labelTop({ y, size: renderer.scaleSize(data.size) });
+		const hoverWidth = Math.max(...lines.map((line) => textWidth(context, line)));
+		return placeApart(neighbours, [labelBox(hoverWidth, lines.length, x, top, settings)]);
 	}
 
 	private hover(node: string | null): void {
@@ -750,11 +974,7 @@ export class GraphGarden extends HTMLElement {
 		this.hovered =
 			node === null || graph === null
 				? null
-				: {
-						node,
-						labelledNeighbours: bestConnected(graph, graph.neighbors(node)),
-						site: siteOf(graph.getNodeAttributes(node)),
-					};
+				: { node, site: siteOf(graph.getNodeAttributes(node)) };
 		// Moving between nodes emits leaveNode then enterNode, which share one scheduled render
 		this.renderer?.refresh({ schedule: true });
 	}

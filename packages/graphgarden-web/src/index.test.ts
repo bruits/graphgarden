@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, afterEach } from "vitest";
+import { describe, test, expect, vi, afterEach, beforeEach } from "vitest";
 import Graph from "graphology";
 import type { NodeCircleProgram } from "sigma/rendering";
 import { DEFAULT_SETTINGS, type Settings } from "sigma/settings";
@@ -25,22 +25,52 @@ const { renderers, FakeSigma } = vi.hoisted(() => {
 		handlers = new Map<string, (payload: SigmaPayload) => void>();
 		killed = false;
 		refreshes = 0;
+		frames: string[][] = [];
+		/** The camera ratio, above 1 when zoomed out. */
+		ratio = 1;
 		constructor(
 			readonly graph: Graph,
 			_container: HTMLElement,
 			readonly settings: Partial<Settings>,
 		) {
 			created.push(this);
+			// Sigma draws its first frame in its constructor
+			this.render();
 		}
 		on(event: string, handler: (payload: SigmaPayload) => void) {
 			this.handlers.set(event, handler);
 			return this;
 		}
-		refresh() {
-			this.refreshes++;
+		refresh({ schedule, partialGraph }: { schedule?: boolean; partialGraph?: unknown } = {}) {
+			// Counts full refreshes, which a change of look asks for
+			if (partialGraph === undefined) this.refreshes++;
+			// Sigma renders at once unless asked to schedule
+			if (!schedule) this.render();
+		}
+		zoom(ratio: number) {
+			this.ratio = ratio;
+			this.render();
+		}
+		render() {
+			this.handlers.get("beforeRender")?.({});
+			this.frames.push(labelsDrawn(this, { ...DEFAULT_SETTINGS, ...this.settings }));
 		}
 		kill() {
 			this.killed = true;
+		}
+		getDimensions() {
+			return { width: 800, height: 600 };
+		}
+		getNodeDisplayData(node: string) {
+			const attributes = this.graph.getNodeAttributes(node);
+			return this.settings.nodeReducer?.(node, attributes) ?? attributes;
+		}
+		// Graph coordinates stand in for viewport ones
+		framedGraphToViewport({ x, y }: { x: number; y: number }) {
+			return { x, y };
+		}
+		scaleSize(size = 1) {
+			return size / this.settings.zoomToSizeRatioFunction!(this.ratio);
 		}
 	}
 	return { renderers: created, FakeSigma: Fake };
@@ -111,7 +141,7 @@ function mount(configure: (element: GraphGarden) => void = () => {}): GraphGarde
 }
 
 /** A 2D context recording the text and rings drawn on it, since happy-dom has no canvas. */
-function recordingContext() {
+function recordingContext(glyphWidth = 6) {
 	const texts: {
 		text: string;
 		x: number;
@@ -148,6 +178,9 @@ function recordingContext() {
 		strokeText(text: string) {
 			halos.push({ text, color: this.strokeStyle });
 		},
+		measureText(text: string) {
+			return { width: text.length * glyphWidth };
+		},
 		fillText(text: string, x: number, y: number) {
 			texts.push({
 				text,
@@ -170,7 +203,70 @@ function pointer(type: string) {
 }
 
 function labelData(key: string, label: string | null, tier: string) {
-	return { key, label, tier, x: 100, y: 50, size: 6, color: "#ff0000" };
+	return { key, label, title: label, tier, x: 100, y: 50, size: 6, color: "#ff0000" };
+}
+
+function place(graph: Graph, positions: Record<string, [number, number]>) {
+	for (const [node, [x, y]] of Object.entries(positions)) graph.mergeNodeAttributes(node, { x, y });
+}
+
+function drawnLabels(settings: Settings, glyphWidth?: number): string[] {
+	const sigma = renderers[0];
+	sigma.handlers.get("beforeRender")!({});
+	return labelsDrawn(sigma, settings, glyphWidth);
+}
+
+/** Offers the drawer only the nodes with a forced label, as Sigma does when its label grid keeps none. */
+function labelsDrawn(
+	sigma: (typeof renderers)[number],
+	settings: Settings,
+	glyphWidth?: number,
+): string[] {
+	const { context, texts } = recordingContext(glyphWidth);
+	return sigma.graph.filterNodes((node, attributes) => {
+		if (!sigma.getNodeDisplayData(node).forceLabel) return false;
+		const before = texts.length;
+		const data = {
+			...attributes,
+			label: attributes.label,
+			key: node,
+			x: 0,
+			y: 0,
+			size: 6,
+			color: "",
+		};
+		settings.defaultDrawNodeLabel(context, data, settings);
+		return texts.length > before;
+	});
+}
+
+function twoSitesAndAStray(): Graph {
+	const graph = new Graph();
+	for (const site of ["a", "b"]) {
+		graph.addNode(site, { origin: site });
+		for (let leaf = 0; leaf < 5; leaf++) {
+			graph.addNode(`${site}${leaf}`, { origin: site });
+			graph.addEdge(site, `${site}${leaf}`);
+		}
+	}
+	graph.addEdge("a", "b");
+	graph.addNode("stray", { origin: "a" });
+	return graph;
+}
+
+function distance(graph: Graph, a: string, b: string): number {
+	const [p, q] = [graph.getNodeAttributes(a), graph.getNodeAttributes(b)];
+	return Math.hypot(p.x - q.x, p.y - q.y);
+}
+
+// mulberry32, so a layout comes out the same every run
+function seededRandom(seed: number): () => number {
+	return () => {
+		seed = (seed + 0x6d2b79f5) | 0;
+		let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
 }
 
 function shaderDeclarations(source: string, qualifier: string): string[] {
@@ -240,6 +336,63 @@ describe("buildGraph", () => {
 		});
 		expect(graph.getAttribute("base_url")).toBe(LOCAL);
 		expect(graph.getAttribute("site")).toEqual({ title: "Local" });
+	});
+
+	test.each([
+		["drops the site's name after a separator", "Images - Docs - Local", "Images - Docs"],
+		["drops the site's name before a separator", "Local | About", "About"],
+		["drops the site's name whatever its case", "Notes · LOCAL", "Notes"],
+		["keeps a title that is the site's name alone", "Local", "Local"],
+		[
+			"cuts a long title after a word, with an ellipsis",
+			"The still scrolls of the web, unchanging and steadfast",
+			"The still scrolls of the web…",
+		],
+		[
+			"keeps a word that ends right at the cut",
+			"Notes on gardening and the web forever",
+			"Notes on gardening and the web…",
+		],
+		[
+			"keeps a word that ends right at the cut before punctuation",
+			"Notes on gardening and the web, forever",
+			"Notes on gardening and the web…",
+		],
+		[
+			"keeps the start of a word that punctuation splits at the cut",
+			"Notes on gardening on any well-known path",
+			"Notes on gardening on any well…",
+		],
+		[
+			"cuts after a word at any space",
+			"The still\u00a0scrolls of the web,\u00a0unchanging",
+			"The still\u00a0scrolls of the web…",
+		],
+		[
+			"cuts a long word where it must",
+			"Pneumonoultramicroscopicsilicovolcanoconiosis",
+			"Pneumonoultramicroscopicsilico…",
+		],
+		["keeps a flag whole at the cut", `${"a".repeat(29)}🇫🇷bcd`, `${"a".repeat(29)}🇫🇷…`],
+		["keeps a joined emoji whole at the cut", `${"a".repeat(29)}👨‍👩‍👧‍👦bcd`, `${"a".repeat(29)}👨‍👩‍👧‍👦…`],
+		[
+			"keeps an accent with its letter at the cut",
+			`${"a".repeat(29)}e\u0301bcd`,
+			`${"a".repeat(29)}e\u0301…`,
+		],
+	])("labels a page with its short title: %s", (_label, title, label) => {
+		const graph = buildGraph(makeFile({ nodes: [{ url: "/page/", title }] }), DEFAULT_CONFIG);
+
+		expect(graph.getNodeAttributes(`${LOCAL}page/`)).toMatchObject({ title, label });
+	});
+
+	test("keeps the site's name in its home page's label", () => {
+		const graph = buildGraph(
+			makeFile({ nodes: [{ url: "/", title: "Local - A small garden" }] }),
+			DEFAULT_CONFIG,
+		);
+
+		expect(graph.getNodeAttribute(LOCAL, "label")).toBe("Local - A small garden");
 	});
 
 	test("colours pages and links by who describes them, grey where nobody does", () => {
@@ -353,6 +506,18 @@ describe("fetchFriendGraphs", () => {
 		expect(graph.getNodeAttribute(`${FRIEND}blog/`, "title")).toBe("Friend Blog");
 		const friendEdge = graph.directedEdge(FRIEND, `${FRIEND}blog/`)!;
 		expect(graph.getEdgeAttribute(friendEdge, "color")).toBe(DEFAULT_CONFIG.friendEdgeColor);
+	});
+
+	test("labels a friend's page without the friend's own site name", async () => {
+		const graph = buildGraph(makeFile(), DEFAULT_CONFIG);
+		serve(() => friendFile({ nodes: [{ url: "/blog/", title: "Blog - Friend" }], edges: [] }));
+
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, [FRIEND]);
+
+		expect(graph.getNodeAttributes(`${FRIEND}blog/`)).toMatchObject({
+			title: "Blog - Friend",
+			label: "Blog",
+		});
 	});
 
 	test("recolours the links to a page once a later file describes it", async () => {
@@ -547,6 +712,71 @@ describe("assignLayout", () => {
 
 	test("leaves an empty graph alone", () => {
 		expect(() => assignLayout(new Graph())).not.toThrow();
+	});
+
+	test.each([1, 2, 3, 4, 5])(
+		"lays a page linked to nothing beside its own site, seed %i",
+		(seed) => {
+			vi.spyOn(Math, "random").mockImplementation(seededRandom(seed));
+			const graph = twoSitesAndAStray();
+
+			assignLayout(graph);
+
+			expect(distance(graph, "stray", "a")).toBeLessThan(distance(graph, "stray", "b"));
+		},
+	);
+
+	test.each([1, 2, 3, 4, 5])(
+		"lays stray pages beside their site, not beside a link they share with the map, seed %i",
+		(seed) => {
+			vi.spyOn(Math, "random").mockImplementation(seededRandom(seed));
+			// Local pages lead in a chain to a friend's home, and link to a GitHub page too
+			const graph = new Graph();
+			const page = (node: string, kind: string, origin: string) =>
+				graph.addNode(node, { kind, origin });
+			for (const node of ["home", "l1", "l2", "l3"]) page(node, "local", "local");
+			for (const node of ["friend", "f1", "f2", "f3", "p1", "p2"]) page(node, "friend", "friend");
+			for (const node of ["github/y", "github/x"]) page(node, "frontier", "github");
+			for (const [source, target] of [
+				["home", "l1"],
+				["l1", "l2"],
+				["l2", "l3"],
+				["l3", "friend"],
+				["home", "github/y"],
+				["friend", "f1"],
+				["friend", "f2"],
+				["friend", "f3"],
+				// Two friend pages link only to another GitHub page, better connected than either
+				["p1", "github/x"],
+				["p2", "github/x"],
+			]) {
+				graph.addEdge(source, target);
+			}
+
+			assignLayout(graph);
+
+			expect(distance(graph, "p1", "friend")).toBeLessThan(distance(graph, "p1", "github/y"));
+		},
+	);
+
+	test("leaves no trace of the links it lays stray pages out with", () => {
+		const graph = twoSitesAndAStray();
+		const edges = graph.edges();
+
+		assignLayout(graph, 5);
+
+		expect(graph.edges()).toEqual(edges);
+		expect(graph.degree("stray")).toBe(0);
+	});
+
+	test("leaves no trace of those links when the layout fails", () => {
+		const graph = twoSitesAndAStray();
+		const edges = graph.edges();
+
+		// ForceAtlas2 rejects a count of zero iterations
+		expect(() => assignLayout(graph, 0)).toThrow();
+
+		expect(graph.edges()).toEqual(edges);
 	});
 });
 
@@ -790,7 +1020,16 @@ describe("<graph-garden> labels and hover", () => {
 		);
 		const element = mount(configure);
 		await element.ready;
+		// Far apart, so no label hides another unless a test moves a node
+		place(element.graph!, {
+			[LOCAL]: [100, 100],
+			[`${LOCAL}about/`]: [400, 100],
+			[`${LOCAL}blog/`]: [100, 400],
+			[FRIEND]: [400, 400],
+			"https://charlie.test/": [700, 400],
+		});
 		const renderer = renderers[0];
+		renderer.render();
 		return { element, renderer, settings: { ...DEFAULT_SETTINGS, ...renderer.settings } };
 	}
 
@@ -824,8 +1063,10 @@ describe("<graph-garden> labels and hover", () => {
 	});
 
 	test("sets large labels in capitals and small ones in a lighter italic", async () => {
-		const { settings } = await render();
+		const { renderer, settings } = await render();
 		const { context, texts } = recordingContext();
+		// Close enough for small nodes to earn a label
+		renderer.zoom(0.25);
 
 		settings.defaultDrawNodeLabel(context, labelData(LOCAL, "Home", "large"), settings);
 		settings.defaultDrawNodeLabel(context, labelData(`${LOCAL}blog/`, "Blog", "small"), settings);
@@ -854,20 +1095,34 @@ describe("<graph-garden> labels and hover", () => {
 	});
 
 	test.each(["large", "medium", "small"])(
-		"redraws a hovered %s label over the idle one in full ink",
+		"writes a hovered %s node's full title in its label's type, in full ink",
 		async (tier) => {
 			const { renderer, settings } = await render();
 			const idle = recordingContext();
 			const hover = recordingContext();
 			const data = labelData(`${LOCAL}about/`, "About", tier);
+			settings.defaultDrawNodeLabel(idle.context, data, settings);
 			renderer.handlers.get("enterNode")!({ node: data.key, event: pointer("mousemove") });
 
-			settings.defaultDrawNodeLabel(idle.context, data, settings);
-			settings.defaultDrawNodeHover(hover.context, data, settings);
+			settings.defaultDrawNodeHover(
+				hover.context,
+				{ ...data, title: "About this garden" },
+				settings,
+			);
 
-			expect(hover.texts[0]).toEqual({ ...idle.texts[0], alpha: 1 });
+			const title = tier === "large" ? "ABOUT THIS GARDEN" : "About this garden";
+			expect(hover.texts[0]).toEqual({ ...idle.texts[0], text: title, alpha: 1 });
 		},
 	);
+
+	test("leaves a hovered node's label to the hover layer", async () => {
+		const { renderer, settings } = await render();
+		expect(drawnLabels(settings)).toContain(LOCAL);
+
+		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
+
+		expect(drawnLabels(settings)).not.toContain(LOCAL);
+	});
 
 	test("draws no label for a node without a title", async () => {
 		const { settings } = await render();
@@ -940,15 +1195,129 @@ describe("<graph-garden> labels and hover", () => {
 		expect(texts).toEqual([]);
 	});
 
-	test("always labels large nodes", async () => {
-		const { element, settings } = await render();
-		const graph = element.graph!;
-		const forceLabel = (key: string) =>
-			settings.nodeReducer!(key, graph.getNodeAttributes(key)).forceLabel;
+	test("labels large nodes at any zoom, and the others once drawn big enough", async () => {
+		const { renderer, settings } = await render();
+		const about = `${LOCAL}about/`;
+		const blog = `${LOCAL}blog/`;
 
-		expect(graph.getNodeAttribute(LOCAL, "tier")).toBe("large");
-		expect(forceLabel(LOCAL)).toBe(true);
-		expect(forceLabel(`${LOCAL}blog/`)).toBe(false);
+		expect(drawnLabels(settings)).toEqual([LOCAL, about]);
+
+		renderer.zoom(0.25);
+		expect(drawnLabels(settings)).toEqual([LOCAL, about, blog]);
+
+		// Zoomed out, nodes shrink with the map
+		renderer.zoom(1.5);
+		expect(drawnLabels(settings)).toEqual([LOCAL]);
+	});
+
+	test("shrinks nodes with the map when zoomed out, down to two thirds", async () => {
+		const { settings } = await render();
+
+		expect(settings.zoomToSizeRatioFunction(1.5)).toBe(1.5);
+		expect(settings.zoomToSizeRatioFunction(0.25)).toBe(0.5);
+		expect(settings.maxCameraRatio).toBe(1.5);
+	});
+
+	test("hides a label that would overlap a better connected node's", async () => {
+		const leaf = `${LOCAL}a-leaf/`;
+		const hub = `${LOCAL}z-hub/`;
+		// The leaf comes first in the file and by key, so only its fewer links can cost it the label
+		serve(() =>
+			makeFile({
+				nodes: [
+					{ url: "/", title: "Home" },
+					{ url: "/a-leaf/", title: "Leaf" },
+					{ url: "/z-hub/", title: "Hub" },
+				],
+				edges: [
+					{ source: "/", target: "/z-hub/", type: "internal" },
+					{ source: "/z-hub/", target: "/a-leaf/", type: "internal" },
+					{ source: "/z-hub/", target: FRIEND, type: "friend" },
+				],
+			}),
+		);
+		const element = mount();
+		await element.ready;
+		const renderer = renderers[0];
+		const settings = { ...DEFAULT_SETTINGS, ...renderer.settings };
+		// Close enough for the leaf to earn a label
+		renderer.zoom(0.25);
+		place(element.graph!, {
+			[LOCAL]: [100, 100],
+			[leaf]: [400, 100],
+			[hub]: [400, 400],
+			[FRIEND]: [700, 400],
+		});
+		expect(drawnLabels(settings)).toEqual([LOCAL, leaf, hub]);
+
+		place(element.graph!, { [hub]: [400, 110] });
+
+		expect(drawnLabels(settings)).toEqual([LOCAL, hub]);
+	});
+
+	test("gives no room to the label of a node too far off the view for Sigma to draw", async () => {
+		const { element, renderer, settings } = await render();
+		const blog = `${LOCAL}blog/`;
+		// So close that Home's label hangs into the view while its centre lies above it
+		renderer.zoom(0.01);
+		place(element.graph!, { [LOCAL]: [400, -80], [blog]: [400, -39] });
+
+		expect(drawnLabels(settings)).toEqual([`${LOCAL}about/`, blog]);
+	});
+
+	test("gives no room to a label wholly off the view", async () => {
+		const { element, settings } = await render();
+		const about = `${LOCAL}about/`;
+		// Home's label ends just above the view, About's hangs into it
+		place(element.graph!, { [LOCAL]: [400, -31], [about]: [400, -10] });
+
+		expect(drawnLabels(settings)).toEqual([about]);
+	});
+
+	test("hides the labels of the nodes a hovered node has no link with", async () => {
+		const { renderer, settings } = await render();
+		renderer.zoom(0.25);
+
+		renderer.handlers.get("enterNode")!({ node: `${LOCAL}blog/`, event: pointer("mousemove") });
+
+		expect(drawnLabels(settings)).toEqual([`${LOCAL}about/`]);
+	});
+
+	test("keeps a hovered node's neighbour unlabelled when the map leaves it so at rest", async () => {
+		const { element, renderer, settings } = await render();
+		const about = `${LOCAL}about/`;
+		renderer.zoom(0.25);
+		place(element.graph!, { [about]: [100, 112] });
+		expect(drawnLabels(settings)).not.toContain(about);
+
+		renderer.handlers.get("enterNode")!({ node: `${LOCAL}blog/`, event: pointer("mousemove") });
+
+		// Home goes as no neighbour of Blog, and About, a neighbour, stays hidden as at rest
+		expect(drawnLabels(settings)).toEqual([]);
+	});
+
+	test("keeps a neighbour's label clear of a hovered node's title and destination", async () => {
+		const { element, renderer, settings } = await render((garden) => {
+			garden.setAttribute("label-size", "20");
+		});
+		const about = `${LOCAL}about/`;
+		place(element.graph!, { [about]: [100, 140] });
+		expect(drawnLabels(settings)).toEqual([LOCAL, about]);
+
+		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
+
+		expect(drawnLabels(settings)).toEqual([]);
+	});
+
+	test("has drawn its labels once ready settles", async () => {
+		serve(() => makeFile());
+		// Big enough for its label to show
+		const element = mount((garden) => garden.setAttribute("node-size", "8"));
+
+		await element.ready;
+
+		// Sigma's constructor frame comes before the renderer is set, so only a later one has labels
+		expect(renderers[0].frames).toEqual([[], [LOCAL]]);
 	});
 
 	test("leaves the graph as it is when a finger touches a node", async () => {
@@ -958,7 +1327,9 @@ describe("<graph-garden> labels and hover", () => {
 		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("touchstart") });
 
 		expect(renderer.refreshes).toBe(0);
-		expect(settings.nodeReducer!(blog, element.graph!.getNodeAttributes(blog)).label).toBe("Blog");
+		expect(settings.nodeReducer!(blog, element.graph!.getNodeAttributes(blog)).color).toBe(
+			DEFAULT_CONFIG.localNodeColor,
+		);
 	});
 
 	test("leaves the graph as it is when a finger moves off a node", async () => {
@@ -968,41 +1339,6 @@ describe("<graph-garden> labels and hover", () => {
 		renderer.handlers.get("leaveNode")!({ node: LOCAL, event: pointer("touchmove") });
 
 		expect(renderer.refreshes).toBe(0);
-	});
-
-	test("forces the labels of the 15 best connected nodes, at rest and around a hovered node", async () => {
-		// Home links to twenty hubs, hub i having i + 2 leaves, so the hubs differ in degree.
-		// Every page also links to an untitled friend, the best connected node of all.
-		const nodes: GraphGardenFile["nodes"] = [{ url: "/", title: "Home" }];
-		const edges: GraphGardenFile["edges"] = [];
-		for (let hub = 0; hub < 20; hub++) {
-			nodes.push({ url: `/h${hub}/`, title: `Hub ${hub}` });
-			edges.push({ source: "/", target: `/h${hub}/`, type: "internal" });
-			for (let leaf = 0; leaf < hub + 2; leaf++) {
-				nodes.push({ url: `/h${hub}/${leaf}/`, title: `Leaf ${leaf}` });
-				edges.push({ source: `/h${hub}/`, target: `/h${hub}/${leaf}/`, type: "internal" });
-			}
-		}
-		for (const { url } of nodes) edges.push({ source: url, target: FRIEND, type: "friend" });
-		serve(() => makeFile({ nodes, edges }));
-		const element = mount();
-		await element.ready;
-		const graph = element.graph!;
-		const renderer = renderers[0];
-		const hubs = Array.from({ length: 20 }, (_, hub) => `${LOCAL}h${hub}/`);
-		const display = (node: string) =>
-			renderer.settings.nodeReducer!(node, graph.getNodeAttributes(node));
-		const forced = () => graph.filterNodes((node) => display(node).forceLabel === true);
-
-		// Home has 21 edges and hub i has i + 4, so the best connected titled nodes are Home and hubs 6 to 19
-		expect(new Set(forced())).toEqual(new Set([LOCAL, ...hubs.slice(6)]));
-
-		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
-
-		// Hubs 5 to 19 are Home's 15 best connected neighbours, and hub 4 is left out of them
-		expect(new Set(forced().filter((node) => node !== LOCAL))).toEqual(new Set(hubs.slice(5)));
-		expect(graph.neighbors(LOCAL).map((node) => display(node).label)).not.toContain(null);
-		expect(display(hubs[4])).toMatchObject({ label: "Hub 4", forceLabel: false });
 	});
 
 	test("fades all but the hovered node's neighbours until the pointer leaves", async () => {
@@ -1019,19 +1355,16 @@ describe("<graph-garden> labels and hover", () => {
 		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
 
 		expect(renderer.refreshes).toBe(1);
-		expect(display(LOCAL)).toMatchObject({ label: "Home", color: DEFAULT_CONFIG.localNodeColor });
-		expect(display(about)).toMatchObject({
-			forceLabel: true,
-			color: DEFAULT_CONFIG.localNodeColor,
-		});
-		expect(display(blog)).toMatchObject({ label: null, color: "rgb(176,214,194)" });
+		expect(display(LOCAL).color).toBe(DEFAULT_CONFIG.localNodeColor);
+		expect(display(about).color).toBe(DEFAULT_CONFIG.localNodeColor);
+		expect(display(blog).color).toBe("rgb(176,214,194)");
 		expect(edgeColor(LOCAL, about)).toBe(DEFAULT_CONFIG.localEdgeColor);
 		expect(edgeColor(blog, about)).toBe("rgb(204,228,215)");
 
 		renderer.handlers.get("leaveNode")!({ node: LOCAL, event: pointer("mousemove") });
 
 		expect(renderer.refreshes).toBe(2);
-		expect(display(blog)).toMatchObject({ label: "Blog", color: DEFAULT_CONFIG.localNodeColor });
+		expect(display(blog).color).toBe(DEFAULT_CONFIG.localNodeColor);
 		expect(edgeColor(blog, about)).toBe(DEFAULT_CONFIG.localEdgeColor);
 	});
 
@@ -1197,23 +1530,46 @@ describe("<graph-garden> labels and hover", () => {
 		}
 	});
 
-	test("redraws its labels once the page fonts have loaded", async () => {
-		const fonts = deferred<void>();
-		Object.defineProperty(document, "fonts", {
-			value: { ready: fonts.promise },
-			configurable: true,
+	describe("once a font face loads", () => {
+		const fonts = new EventTarget();
+		beforeEach(() => {
+			Object.defineProperty(document, "fonts", { value: fonts, configurable: true });
 		});
-		try {
+		afterEach(() => {
+			Reflect.deleteProperty(document, "fonts");
+		});
+
+		test("redraws its labels", async () => {
 			const { renderer } = await render();
 			expect(renderer.refreshes).toBe(0);
 
-			fonts.resolve();
-			await fonts.promise;
+			fonts.dispatchEvent(new Event("loadingdone"));
 
 			expect(renderer.refreshes).toBe(1);
-		} finally {
-			Reflect.deleteProperty(document, "fonts");
-		}
+		});
+
+		test("measures its labels again", async () => {
+			const { element, settings } = await render();
+			const about = `${LOCAL}about/`;
+			// Clear of Home's label in the fallback font, not in the wider web font
+			place(element.graph!, { [about]: [150, 100] });
+			expect(drawnLabels(settings)).toEqual([LOCAL, about]);
+
+			fonts.dispatchEvent(new Event("loadingdone"));
+
+			expect(drawnLabels(settings, 12)).toEqual([LOCAL]);
+		});
+
+		test("stops listening once removed", async () => {
+			const { element } = await render();
+			element.remove();
+			document.body.appendChild(element);
+			await element.ready;
+
+			fonts.dispatchEvent(new Event("loadingdone"));
+
+			expect(renderers[1].refreshes).toBe(1);
+		});
 	});
 
 	test.each([
@@ -1236,8 +1592,8 @@ describe("<graph-garden> labels and hover", () => {
 		renderer.handlers.get("leaveNode")!({ node: LOCAL, event: pointer(leave) });
 		renderer.handlers.get("enterStage")!({ event: pointer("mouseenter") });
 
-		const blogLabel = settings.nodeReducer!(blog, element.graph!.getNodeAttributes(blog)).label;
-		expect(blogLabel).toBe(hovered ? null : "Blog");
+		const blogColor = settings.nodeReducer!(blog, element.graph!.getNodeAttributes(blog)).color;
+		expect(blogColor).toBe(hovered ? "rgb(176,214,194)" : DEFAULT_CONFIG.localNodeColor);
 		expect(container.style.cursor).toBe(hovered ? "pointer" : "default");
 	});
 
@@ -1256,6 +1612,8 @@ describe("<graph-garden> labels and hover", () => {
 
 		const settings = renderers[1].settings;
 		const blog = `${LOCAL}blog/`;
-		expect(settings.nodeReducer!(blog, element.graph!.getNodeAttributes(blog)).label).toBe("Blog");
+		expect(settings.nodeReducer!(blog, element.graph!.getNodeAttributes(blog)).color).toBe(
+			DEFAULT_CONFIG.localNodeColor,
+		);
 	});
 });

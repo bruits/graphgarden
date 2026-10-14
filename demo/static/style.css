@@ -29,6 +29,7 @@
     /* Link text on the paper and the tint, as --link is under 4.5:1 there */
     --link-ink: #177543;
     --link-tint: rgb(29 138 80 / 0.12);
+    --sheet-shadow: 0 1px 3px rgb(28 25 23 / 0.06), 0 10px 24px -6px rgb(28 25 23 / 0.16);
     color-scheme: light;
 }
 
@@ -41,6 +42,7 @@
         --link: #2fb970;
         --link-ink: #2fb970;
         --link-tint: rgb(47 185 112 / 0.16);
+        --sheet-shadow: 0 1px 3px rgb(0 0 0 / 0.3), 0 10px 24px -6px rgb(0 0 0 / 0.5);
         --gg-local-node-color: #2fb970;
         --gg-friend-node-color: #fbbf24;
         --gg-frontier-node-color: #78716c;
@@ -61,6 +63,7 @@
     --link: #2fb970;
     --link-ink: #2fb970;
     --link-tint: rgb(47 185 112 / 0.16);
+    --sheet-shadow: 0 1px 3px rgb(0 0 0 / 0.3), 0 10px 24px -6px rgb(0 0 0 / 0.5);
     --gg-local-node-color: #2fb970;
     --gg-friend-node-color: #fbbf24;
     --gg-frontier-node-color: #78716c;
@@ -229,9 +232,10 @@ graph-garden {
     pointer-events: none;
 }
 
-/* The frame sits on `.sheet`, as a body background would spread to the whole canvas */
+/* The frame sits on `.sheet`, as a body background would spread to the whole canvas. Its shadow
+   reaches 28px below it, within this padding, so the screenshot never cuts it. */
 :root[data-capture] body {
-    padding: 40px;
+    padding: 32px;
     background: none;
 }
 
@@ -240,13 +244,11 @@ graph-garden {
     border: 1px solid var(--rim);
     border-radius: 18px;
     background: var(--paper);
-    box-shadow:
-        0 2px 6px rgb(28 25 23 / 0.06),
-        0 18px 40px rgb(28 25 23 / 0.14);
+    box-shadow: var(--sheet-shadow);
 }
 
 :root[data-capture] .map .sheet {
-    height: calc(100vh - 80px);
+    height: calc(100vh - 64px);
 }
 
 :root[data-capture] header,

@@ -9,7 +9,7 @@ import { parseArgs, promisify } from "node:util";
 
 // `parseArgs` drops the `--` that pnpm forwards from `pnpm run capture -- 12`
 const { positionals } = parseArgs({ allowPositionals: true });
-// The layout with the fewest label overlaps for the current copies in `static/captures/`
+// The layout that shows the most labels for the current copies in `static/captures/`
 const SEED = positionals[0] ?? "9";
 if (!/^\d+$/.test(SEED)) {
     console.error(`The seed must be a whole number, not "${SEED}".`);
