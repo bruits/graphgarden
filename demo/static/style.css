@@ -30,6 +30,10 @@
     --link-ink: #177543;
     --link-tint: rgb(29 138 80 / 0.12);
     --sheet-shadow: 0 1px 3px rgb(28 25 23 / 0.06), 0 10px 24px -6px rgb(28 25 23 / 0.16);
+    /* Maudit inlines base16-eighties.dark with no background, so the code panel keeps these in
+       both modes */
+    --code-paper: #2d2d2d;
+    --code-ink: #d3d0c8;
     color-scheme: light;
 }
 
@@ -176,14 +180,11 @@ h2 {
 pre {
     padding: 1rem;
     overflow-x: auto;
-    border: 1px solid var(--rim);
     border-radius: 10px;
+    background: var(--code-paper);
+    color: var(--code-ink);
+    color-scheme: dark;
     font-size: 0.85rem;
-}
-
-/* Maudit inlines one dark highlighting theme, unreadable on the light paper */
-pre [style] {
-    color: inherit !important;
 }
 
 .credits {

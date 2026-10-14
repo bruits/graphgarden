@@ -12,7 +12,9 @@ Friendship goes one way. Adding Bob shows his graph on your site, and Bob shows 
 
 A site that already knows its pages can write the file itself. [goulven-clech.dev](https://goulven-clech.dev/) does this with an Astro endpoint that turns its posts and pages into nodes and the links in them into edges, in [`graphgarden.json.ts`](https://github.com/goulvenclech/goulven-clech.dev/blob/main/src/pages/.well-known/graphgarden.json.ts). A smaller version, for a blog whose home page lists its posts:
 
-```ts
+<!-- `js` because Maudit's highlighter has no TypeScript grammar -->
+
+```js
 // src/pages/.well-known/graphgarden.json.ts
 import { getCollection } from "astro:content";
 

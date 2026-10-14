@@ -1,5 +1,5 @@
 use maud::{PreEscaped, html};
-use maudit::content::render_markdown;
+use maudit::content::{MarkdownOptions, render_markdown};
 use maudit::route::prelude::*;
 
 use crate::garden;
@@ -36,7 +36,17 @@ pub struct Tutorial;
 
 impl Route for Tutorial {
     fn render(&self, ctx: &mut PageContext) -> impl Into<RenderResult> {
-        let tutorial = render_markdown(include_str!("../content/tutorial.md"), None, None, None);
+        // static/style.css copies this theme's panel colours to `--code-paper` and `--code-ink`
+        let options = MarkdownOptions {
+            highlight_theme: "base16-eighties.dark".into(),
+            ..Default::default()
+        };
+        let tutorial = render_markdown(
+            include_str!("../content/tutorial.md"),
+            Some(&options),
+            None,
+            None,
+        );
         layout(
             ctx.current_path,
             "Tutorial",
