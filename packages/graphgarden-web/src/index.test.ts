@@ -203,7 +203,7 @@ function pointer(type: string) {
 }
 
 function labelData(key: string, label: string | null, tier: string) {
-	return { key, label, title: label, tier, x: 100, y: 50, size: 6, color: "#ff0000" };
+	return { key, url: key, label, title: label, tier, x: 100, y: 50, size: 6, color: "#ff0000" };
 }
 
 function place(graph: Graph, positions: Record<string, [number, number]>) {
@@ -328,7 +328,8 @@ describe("buildGraph", () => {
 			DEFAULT_CONFIG,
 		);
 
-		expect(graph.getNodeAttributes(`${LOCAL}about/`)).toMatchObject({
+		expect(graph.getNodeAttributes(`${LOCAL}about`)).toMatchObject({
+			url: `${LOCAL}about/`,
 			title: "About",
 			label: "About",
 			size: DEFAULT_CONFIG.nodeSize,
@@ -383,7 +384,7 @@ describe("buildGraph", () => {
 	])("labels a page with its short title: %s", (_label, title, label) => {
 		const graph = buildGraph(makeFile({ nodes: [{ url: "/page/", title }] }), DEFAULT_CONFIG);
 
-		expect(graph.getNodeAttributes(`${LOCAL}page/`)).toMatchObject({ title, label });
+		expect(graph.getNodeAttributes(`${LOCAL}page`)).toMatchObject({ title, label });
 	});
 
 	test("keeps the site's name in its home page's label", () => {
@@ -413,10 +414,10 @@ describe("buildGraph", () => {
 
 		const edgeColor = (target: string) =>
 			graph.getEdgeAttribute(graph.directedEdge(LOCAL, target)!, "color");
-		expect(edgeColor(`${LOCAL}about/`)).toBe(DEFAULT_CONFIG.localEdgeColor);
+		expect(edgeColor(`${LOCAL}about`)).toBe(DEFAULT_CONFIG.localEdgeColor);
 		expect(edgeColor(`${LOCAL}missing`)).toBe(DEFAULT_CONFIG.frontierEdgeColor);
 		expect(edgeColor(FRIEND)).toBe(DEFAULT_CONFIG.frontierEdgeColor);
-		expect(graph.getNodeAttribute(`${LOCAL}about/`, "color")).toBe(DEFAULT_CONFIG.localNodeColor);
+		expect(graph.getNodeAttribute(`${LOCAL}about`, "color")).toBe(DEFAULT_CONFIG.localNodeColor);
 		expect(graph.getNodeAttribute(`${LOCAL}missing`, "color")).toBe(
 			DEFAULT_CONFIG.frontierNodeColor,
 		);
@@ -452,11 +453,14 @@ describe("buildGraph", () => {
 
 		expect(Object.fromEntries(graph.mapNodes((node, { type }) => [node, type]))).toEqual({
 			[LOCAL]: "home",
-			[`${LOCAL}about/`]: "circle",
+			[`${LOCAL}about`]: "circle",
 			[`${LOCAL}?page=2`]: "circle",
 			"https://charlie.test/": "home",
-			"https://charlie.test/blog/": "circle",
+			"https://charlie.test/blog": "circle",
 		});
+		expect(graph.getNodeAttribute("https://charlie.test/blog", "url")).toBe(
+			"https://charlie.test/blog/",
+		);
 	});
 
 	test("skips nodes and edges whose URL is not http or https", () => {
@@ -475,6 +479,58 @@ describe("buildGraph", () => {
 		);
 
 		expect(graph.nodes()).toEqual([LOCAL]);
+		expect(graph.size).toBe(0);
+	});
+
+	test.each([
+		["/about/", `${LOCAL}about`],
+		["/about", `${LOCAL}about`],
+		["/about/?page=2", `${LOCAL}about?page=2`],
+		["/", LOCAL],
+		["/?page=2", `${LOCAL}?page=2`],
+	])("keys %s as %s", (url, key) => {
+		const graph = buildGraph(makeFile({ nodes: [{ url, title: "Page" }] }), DEFAULT_CONFIG);
+
+		expect(graph.nodes()).toEqual([key]);
+	});
+
+	test.each([
+		["/about", "/about/"],
+		["/about/", "/about"],
+	])("links a page declared as %s to and from %s", (declared, linked) => {
+		const graph = buildGraph(
+			makeFile({
+				nodes: [
+					{ url: "/", title: "Home" },
+					{ url: declared, title: "About" },
+				],
+				edges: [
+					{ source: "/", target: linked, type: "internal" },
+					{ source: linked, target: "/", type: "internal" },
+				],
+			}),
+			DEFAULT_CONFIG,
+		);
+
+		expect(graph.nodes()).toEqual([LOCAL, `${LOCAL}about`]);
+		expect(graph.mapEdges((_edge, { color }) => color)).toEqual([
+			DEFAULT_CONFIG.localEdgeColor,
+			DEFAULT_CONFIG.localEdgeColor,
+		]);
+	});
+
+	test("drops a page's links to itself, with or without its trailing slash", () => {
+		const graph = buildGraph(
+			makeFile({
+				nodes: [{ url: "/about/", title: "About" }],
+				edges: [
+					{ source: "/about/", target: "/about/", type: "internal" },
+					{ source: "/about/", target: "/about", type: "internal" },
+				],
+			}),
+			DEFAULT_CONFIG,
+		);
+
 		expect(graph.size).toBe(0);
 	});
 
@@ -503,8 +559,8 @@ describe("fetchFriendGraphs", () => {
 			title: "Friend Home",
 			color: DEFAULT_CONFIG.friendNodeColor,
 		});
-		expect(graph.getNodeAttribute(`${FRIEND}blog/`, "title")).toBe("Friend Blog");
-		const friendEdge = graph.directedEdge(FRIEND, `${FRIEND}blog/`)!;
+		expect(graph.getNodeAttribute(`${FRIEND}blog`, "title")).toBe("Friend Blog");
+		const friendEdge = graph.directedEdge(FRIEND, `${FRIEND}blog`)!;
 		expect(graph.getEdgeAttribute(friendEdge, "color")).toBe(DEFAULT_CONFIG.friendEdgeColor);
 	});
 
@@ -514,7 +570,7 @@ describe("fetchFriendGraphs", () => {
 
 		await fetchFriendGraphs(graph, DEFAULT_CONFIG, [FRIEND]);
 
-		expect(graph.getNodeAttributes(`${FRIEND}blog/`)).toMatchObject({
+		expect(graph.getNodeAttributes(`${FRIEND}blog`)).toMatchObject({
 			title: "Blog - Friend",
 			label: "Blog",
 		});
@@ -532,6 +588,48 @@ describe("fetchFriendGraphs", () => {
 		await fetchFriendGraphs(graph, DEFAULT_CONFIG, [FRIEND]);
 
 		expect(graph.getNodeAttribute(FRIEND, "color")).toBe(DEFAULT_CONFIG.friendNodeColor);
+		expect(graph.getEdgeAttribute(link, "color")).toBe(DEFAULT_CONFIG.friendEdgeColor);
+	});
+
+	test.each([
+		[`${FRIEND}blog`, "/blog/"],
+		[`${FRIEND}blog/`, "/blog"],
+	])(
+		"merges a link to %s into the friend's page %s, under the friend's URL",
+		async (linked, declared) => {
+			const graph = buildGraph(
+				makeFile({ edges: [{ source: "/", target: linked, type: "friend" }] }),
+				DEFAULT_CONFIG,
+			);
+			serve(() => friendFile({ nodes: [{ url: declared, title: "Friend Blog" }], edges: [] }));
+
+			await fetchFriendGraphs(graph, DEFAULT_CONFIG, [FRIEND]);
+
+			expect(graph.nodes()).toEqual([LOCAL, `${FRIEND}blog`]);
+			expect(graph.getNodeAttributes(`${FRIEND}blog`)).toMatchObject({
+				url: new URL(declared, FRIEND).href,
+				kind: "friend",
+			});
+			const link = graph.directedEdge(LOCAL, `${FRIEND}blog`)!;
+			expect(graph.getEdgeAttribute(link, "color")).toBe(DEFAULT_CONFIG.friendEdgeColor);
+		},
+	);
+
+	test("lands a friend's link on a local page written without its trailing slash", async () => {
+		const graph = buildGraph(
+			makeFile({ nodes: [{ url: "/about", title: "About" }] }),
+			DEFAULT_CONFIG,
+		);
+		serve(() => friendFile({ edges: [{ source: "/", target: `${LOCAL}about/`, type: "friend" }] }));
+
+		await fetchFriendGraphs(graph, DEFAULT_CONFIG, [FRIEND]);
+
+		expect(graph.getNodeAttributes(`${LOCAL}about`)).toMatchObject({
+			url: `${LOCAL}about`,
+			kind: "local",
+		});
+		expect(graph.hasNode(`${LOCAL}about/`)).toBe(false);
+		const link = graph.directedEdge(FRIEND, `${LOCAL}about`)!;
 		expect(graph.getEdgeAttribute(link, "color")).toBe(DEFAULT_CONFIG.friendEdgeColor);
 	});
 
@@ -854,7 +952,7 @@ describe("<graph-garden>", () => {
 		await element.ready;
 
 		expect(element.graph!.hasNode(LOCAL)).toBe(true);
-		expect(element.graph!.hasNode(`${FRIEND}blog/`)).toBe(true);
+		expect(element.graph!.hasNode(`${FRIEND}blog`)).toBe(true);
 		element.graph!.forEachNode((_node, attributes) => {
 			expect(Number.isFinite(attributes.x)).toBe(true);
 		});
@@ -886,7 +984,7 @@ describe("<graph-garden>", () => {
 		await element.ready;
 
 		expect(element.graph!.getNodeAttribute(LOCAL, "size")).toBe(DEFAULT_CONFIG.nodeSize * 2);
-		expect(element.graph!.getNodeAttribute(`${LOCAL}about/`, "size")).toBe(DEFAULT_CONFIG.nodeSize);
+		expect(element.graph!.getNodeAttribute(`${LOCAL}about`, "size")).toBe(DEFAULT_CONFIG.nodeSize);
 	});
 
 	test.each([
@@ -958,10 +1056,11 @@ describe("<graph-garden>", () => {
 		expect(element.shadowRoot!.childNodes).toHaveLength(0);
 	});
 
-	test("navigates on click only to http and https URLs", async () => {
-		serve(() => makeFile());
+	test("navigates on click to the page's URL as its file writes it, only over http and https", async () => {
+		serve(() => makeFile({ nodes: [{ url: "/about/", title: "About" }] }));
 		const element = mount();
 		await element.ready;
+		element.graph!.addNode("evil", { url: "javascript:alert(1)" });
 		const visited: string[] = [];
 		vi.stubGlobal("location", {
 			set href(url: string) {
@@ -970,10 +1069,10 @@ describe("<graph-garden>", () => {
 		});
 
 		const click = renderers[0].handlers.get("clickNode")!;
-		click({ node: "javascript:alert(1)" });
-		click({ node: LOCAL });
+		click({ node: "evil" });
+		click({ node: `${LOCAL}about` });
 
-		expect(visited).toEqual([LOCAL]);
+		expect(visited).toEqual([`${LOCAL}about/`]);
 	});
 
 	test("reads its sizes from attributes and its colours from CSS custom properties", async () => {
@@ -1023,8 +1122,8 @@ describe("<graph-garden> labels and hover", () => {
 		// Far apart, so no label hides another unless a test moves a node
 		place(element.graph!, {
 			[LOCAL]: [100, 100],
-			[`${LOCAL}about/`]: [400, 100],
-			[`${LOCAL}blog/`]: [100, 400],
+			[`${LOCAL}about`]: [400, 100],
+			[`${LOCAL}blog`]: [100, 400],
 			[FRIEND]: [400, 400],
 			"https://charlie.test/": [700, 400],
 		});
@@ -1040,11 +1139,7 @@ describe("<graph-garden> labels and hover", () => {
 		});
 		const { context, texts, halos } = recordingContext();
 
-		settings.defaultDrawNodeLabel(
-			context,
-			labelData(`${LOCAL}about/`, "About", "medium"),
-			settings,
-		);
+		settings.defaultDrawNodeLabel(context, labelData(`${LOCAL}about`, "About", "medium"), settings);
 
 		expect(texts).toEqual([
 			{
@@ -1069,7 +1164,7 @@ describe("<graph-garden> labels and hover", () => {
 		renderer.zoom(0.25);
 
 		settings.defaultDrawNodeLabel(context, labelData(LOCAL, "Home", "large"), settings);
-		settings.defaultDrawNodeLabel(context, labelData(`${LOCAL}blog/`, "Blog", "small"), settings);
+		settings.defaultDrawNodeLabel(context, labelData(`${LOCAL}blog`, "Blog", "small"), settings);
 
 		expect(texts[0]).toMatchObject({ text: "HOME", alpha: 1 });
 		expect(texts[1]).toMatchObject({ text: "Blog", alpha: 0.7 });
@@ -1081,7 +1176,7 @@ describe("<graph-garden> labels and hover", () => {
 		const { context, texts } = recordingContext();
 
 		settings.defaultDrawNodeLabel(context, labelData(LOCAL, "Home", "large"), settings);
-		settings.defaultDrawNodeLabel(context, labelData(`${LOCAL}about/`, "Home", "medium"), settings);
+		settings.defaultDrawNodeLabel(context, labelData(`${LOCAL}about`, "Home", "medium"), settings);
 
 		const [large, medium] = texts.map(({ font, letterSpacing }) => ({
 			weight: Number(/^(?:italic )?(\d+) /.exec(font)![1]),
@@ -1100,7 +1195,7 @@ describe("<graph-garden> labels and hover", () => {
 			const { renderer, settings } = await render();
 			const idle = recordingContext();
 			const hover = recordingContext();
-			const data = labelData(`${LOCAL}about/`, "About", tier);
+			const data = labelData(`${LOCAL}about`, "About", tier);
 			settings.defaultDrawNodeLabel(idle.context, data, settings);
 			renderer.handlers.get("enterNode")!({ node: data.key, event: pointer("mousemove") });
 
@@ -1173,7 +1268,7 @@ describe("<graph-garden> labels and hover", () => {
 	])("rings a hovered node and names %s", async (_label, key, label, tier, expected) => {
 		const { element, renderer, settings } = await render();
 		const { context, texts, rings } = recordingContext();
-		element.graph!.mergeNode(key);
+		element.graph!.mergeNode(key, { url: key });
 		renderer.handlers.get("enterNode")!({ node: key, event: pointer("mousemove") });
 
 		settings.defaultDrawNodeHover(context, labelData(key, label, tier), settings);
@@ -1181,6 +1276,22 @@ describe("<graph-garden> labels and hover", () => {
 		expect(rings).toEqual([{ radius: 9, color: "#ff0000" }]);
 		expect(texts.map(({ text }) => text)).toEqual(expected);
 		expect(texts[0].alpha).toBe(1);
+	});
+
+	test("names a hovered page by the URL its file writes", async () => {
+		const { element, renderer, settings } = await render();
+		const { context, texts } = recordingContext();
+		const key = `${LOCAL}about`;
+		expect(element.graph!.getNodeAttribute(key, "url")).toBe(`${key}/`);
+		renderer.handlers.get("enterNode")!({ node: key, event: pointer("mousemove") });
+
+		settings.defaultDrawNodeHover(
+			context,
+			{ ...labelData(key, "About", "medium"), url: `${key}/` },
+			settings,
+		);
+
+		expect(texts.map(({ text }) => text)).toEqual(["About", "/about/"]);
 	});
 
 	test("draws no hover once the pointer has left the node", async () => {
@@ -1197,8 +1308,8 @@ describe("<graph-garden> labels and hover", () => {
 
 	test("labels large nodes at any zoom, and the others once drawn big enough", async () => {
 		const { renderer, settings } = await render();
-		const about = `${LOCAL}about/`;
-		const blog = `${LOCAL}blog/`;
+		const about = `${LOCAL}about`;
+		const blog = `${LOCAL}blog`;
 
 		expect(drawnLabels(settings)).toEqual([LOCAL, about]);
 
@@ -1219,8 +1330,8 @@ describe("<graph-garden> labels and hover", () => {
 	});
 
 	test("hides a label that would overlap a better connected node's", async () => {
-		const leaf = `${LOCAL}a-leaf/`;
-		const hub = `${LOCAL}z-hub/`;
+		const leaf = `${LOCAL}a-leaf`;
+		const hub = `${LOCAL}z-hub`;
 		// The leaf comes first in the file and by key, so only its fewer links can cost it the label
 		serve(() =>
 			makeFile({
@@ -1257,17 +1368,17 @@ describe("<graph-garden> labels and hover", () => {
 
 	test("gives no room to the label of a node too far off the view for Sigma to draw", async () => {
 		const { element, renderer, settings } = await render();
-		const blog = `${LOCAL}blog/`;
+		const blog = `${LOCAL}blog`;
 		// So close that Home's label hangs into the view while its centre lies above it
 		renderer.zoom(0.01);
 		place(element.graph!, { [LOCAL]: [400, -80], [blog]: [400, -39] });
 
-		expect(drawnLabels(settings)).toEqual([`${LOCAL}about/`, blog]);
+		expect(drawnLabels(settings)).toEqual([`${LOCAL}about`, blog]);
 	});
 
 	test("gives no room to a label wholly off the view", async () => {
 		const { element, settings } = await render();
-		const about = `${LOCAL}about/`;
+		const about = `${LOCAL}about`;
 		// Home's label ends just above the view, About's hangs into it
 		place(element.graph!, { [LOCAL]: [400, -31], [about]: [400, -10] });
 
@@ -1278,19 +1389,19 @@ describe("<graph-garden> labels and hover", () => {
 		const { renderer, settings } = await render();
 		renderer.zoom(0.25);
 
-		renderer.handlers.get("enterNode")!({ node: `${LOCAL}blog/`, event: pointer("mousemove") });
+		renderer.handlers.get("enterNode")!({ node: `${LOCAL}blog`, event: pointer("mousemove") });
 
-		expect(drawnLabels(settings)).toEqual([`${LOCAL}about/`]);
+		expect(drawnLabels(settings)).toEqual([`${LOCAL}about`]);
 	});
 
 	test("keeps a hovered node's neighbour unlabelled when the map leaves it so at rest", async () => {
 		const { element, renderer, settings } = await render();
-		const about = `${LOCAL}about/`;
+		const about = `${LOCAL}about`;
 		renderer.zoom(0.25);
 		place(element.graph!, { [about]: [100, 112] });
 		expect(drawnLabels(settings)).not.toContain(about);
 
-		renderer.handlers.get("enterNode")!({ node: `${LOCAL}blog/`, event: pointer("mousemove") });
+		renderer.handlers.get("enterNode")!({ node: `${LOCAL}blog`, event: pointer("mousemove") });
 
 		// Home goes as no neighbour of Blog, and About, a neighbour, stays hidden as at rest
 		expect(drawnLabels(settings)).toEqual([]);
@@ -1300,7 +1411,7 @@ describe("<graph-garden> labels and hover", () => {
 		const { element, renderer, settings } = await render((garden) => {
 			garden.setAttribute("label-size", "20");
 		});
-		const about = `${LOCAL}about/`;
+		const about = `${LOCAL}about`;
 		place(element.graph!, { [about]: [100, 140] });
 		expect(drawnLabels(settings)).toEqual([LOCAL, about]);
 
@@ -1322,7 +1433,7 @@ describe("<graph-garden> labels and hover", () => {
 
 	test("leaves the graph as it is when a finger touches a node", async () => {
 		const { element, renderer, settings } = await render();
-		const blog = `${LOCAL}blog/`;
+		const blog = `${LOCAL}blog`;
 
 		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("touchstart") });
 
@@ -1349,8 +1460,8 @@ describe("<graph-garden> labels and hover", () => {
 			const edge = graph.directedEdge(source, target)!;
 			return settings.edgeReducer!(edge, graph.getEdgeAttributes(edge)).color;
 		};
-		const blog = `${LOCAL}blog/`;
-		const about = `${LOCAL}about/`;
+		const blog = `${LOCAL}blog`;
+		const about = `${LOCAL}about`;
 
 		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
 
@@ -1373,8 +1484,8 @@ describe("<graph-garden> labels and hover", () => {
 			garden.style.setProperty("--gg-label-halo-color", "#0f172a");
 		});
 		const graph = element.graph!;
-		const blog = `${LOCAL}blog/`;
-		const about = `${LOCAL}about/`;
+		const blog = `${LOCAL}blog`;
+		const about = `${LOCAL}about`;
 		const edge = graph.directedEdge(blog, about)!;
 
 		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
@@ -1428,8 +1539,8 @@ describe("<graph-garden> labels and hover", () => {
 			const edge = graph.directedEdge(source, target)!;
 			return edgeReducer!(edge, graph.getEdgeAttributes(edge)).color;
 		};
-		const blog = `${FRIEND}blog/`;
-		const notes = `${FRIEND}notes/`;
+		const blog = `${FRIEND}blog`;
+		const notes = `${FRIEND}notes`;
 		expect(edgeColor(LOCAL, blog)).toBe(DEFAULT_CONFIG.friendEdgeColor);
 
 		renderers[0].handlers.get("enterNode")!({ node: blog, event: pointer("mousemove") });
@@ -1447,11 +1558,11 @@ describe("<graph-garden> labels and hover", () => {
 		expect(nodeColor(charlie)).toBe(DEFAULT_CONFIG.frontierNodeColor);
 		expect(edgeColor(blog, charlie)).toBe(DEFAULT_CONFIG.frontierEdgeColor);
 		// A page of its origin that its file does not describe is a frontier page, outside the site
-		expect(nodeColor(`${FRIEND}draft/`)).toBe(DEFAULT_CONFIG.frontierNodeColor);
-		expect(edgeColor(blog, `${FRIEND}draft/`)).toBe(DEFAULT_CONFIG.frontierEdgeColor);
-		expect(nodeColor(`${FRIEND}gone/`)).toBe("rgb(240,241,243)");
-		expect(edgeColor(notes, `${FRIEND}gone/`)).toBe("rgb(243,244,245)");
-		expect(nodeColor(`${LOCAL}about/`)).toBe("rgb(221,237,229)");
+		expect(nodeColor(`${FRIEND}draft`)).toBe(DEFAULT_CONFIG.frontierNodeColor);
+		expect(edgeColor(blog, `${FRIEND}draft`)).toBe(DEFAULT_CONFIG.frontierEdgeColor);
+		expect(nodeColor(`${FRIEND}gone`)).toBe("rgb(240,241,243)");
+		expect(edgeColor(notes, `${FRIEND}gone`)).toBe("rgb(243,244,245)");
+		expect(nodeColor(`${LOCAL}about`)).toBe("rgb(221,237,229)");
 		expect(edgeColor(LOCAL, FRIEND)).toBe("rgb(254,245,222)");
 	});
 
@@ -1472,8 +1583,8 @@ describe("<graph-garden> labels and hover", () => {
 		await element.ready;
 		const graph = element.graph!;
 		const { nodeReducer, edgeReducer } = renderers[0].settings;
-		const draft = `${LOCAL}draft/`;
-		const edge = graph.directedEdge(`${LOCAL}about/`, draft)!;
+		const draft = `${LOCAL}draft`;
+		const edge = graph.directedEdge(`${LOCAL}about`, draft)!;
 
 		renderers[0].handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
 
@@ -1485,7 +1596,7 @@ describe("<graph-garden> labels and hover", () => {
 		const { element, renderer, settings } = await render();
 		const graph = element.graph!;
 		const charlie = "https://charlie.test/";
-		const blog = `${LOCAL}blog/`;
+		const blog = `${LOCAL}blog`;
 		const edge = graph.directedEdge(LOCAL, charlie)!;
 
 		renderer.handlers.get("enterNode")!({ node: charlie, event: pointer("mousemove") });
@@ -1550,7 +1661,7 @@ describe("<graph-garden> labels and hover", () => {
 
 		test("measures its labels again", async () => {
 			const { element, settings } = await render();
-			const about = `${LOCAL}about/`;
+			const about = `${LOCAL}about`;
 			// Clear of Home's label in the fallback font, not in the wider web font
 			place(element.graph!, { [about]: [150, 100] });
 			expect(drawnLabels(settings)).toEqual([LOCAL, about]);
@@ -1585,7 +1696,7 @@ describe("<graph-garden> labels and hover", () => {
 		],
 	])("%s", async (_label, leave, hovered) => {
 		const { element, renderer, settings } = await render();
-		const blog = `${LOCAL}blog/`;
+		const blog = `${LOCAL}blog`;
 		const container = element.shadowRoot!.querySelector("div")!;
 
 		renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
@@ -1611,7 +1722,7 @@ describe("<graph-garden> labels and hover", () => {
 		renderers[1].handlers.get("enterStage")!({ event: pointer("mouseenter") });
 
 		const settings = renderers[1].settings;
-		const blog = `${LOCAL}blog/`;
+		const blog = `${LOCAL}blog`;
 		expect(settings.nodeReducer!(blog, element.graph!.getNodeAttributes(blog)).color).toBe(
 			DEFAULT_CONFIG.localNodeColor,
 		);

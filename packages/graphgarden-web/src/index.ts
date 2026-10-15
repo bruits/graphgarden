@@ -170,9 +170,11 @@ function mergeFile(
 	for (const node of file.nodes) {
 		const url = parseHttpUrl(node.url, file.base_url);
 		if (url === null || url.origin !== origin) continue;
-		declared.add(url.href);
+		const key = pageKey(url);
+		declared.add(key);
 		const type = programOf(url);
-		graph.mergeNode(url.href, {
+		graph.mergeNode(key, {
+			url: url.href,
 			title: node.title,
 			// A home page keeps the site's name, which its label alone carries
 			label: shortLabel(node.title, type === "home" ? undefined : file.site.title),
@@ -183,32 +185,45 @@ function mergeFile(
 			color: nodeColor(owner, config),
 		});
 		// An earlier file may have linked here while nobody described the page
-		graph.forEachInEdge(url.href, (edge, _attributes, source) => {
-			graph.setEdgeAttribute(edge, "color", edgeColor(graph, source, url.href, config));
+		graph.forEachInEdge(key, (edge, _attributes, source) => {
+			graph.setEdgeAttribute(edge, "color", edgeColor(graph, source, key, config));
 		});
 	}
 
 	for (const edge of file.edges) {
-		const source = parseHttpUrl(edge.source, file.base_url)?.href;
-		const target = parseHttpUrl(edge.target, file.base_url);
-		if (source === undefined || target === null || !declared.has(source)) continue;
+		const sourceUrl = parseHttpUrl(edge.source, file.base_url);
+		const targetUrl = parseHttpUrl(edge.target, file.base_url);
+		if (sourceUrl === null || targetUrl === null) continue;
+		const source = pageKey(sourceUrl);
+		const target = pageKey(targetUrl);
+		// A link from `/about` to `/about/` loops on its page once keyed
+		if (!declared.has(source) || source === target) continue;
 
-		if (!graph.hasNode(target.href)) {
-			graph.addNode(target.href, {
+		if (!graph.hasNode(target)) {
+			graph.addNode(target, {
+				url: targetUrl.href,
 				size: config.nodeSize,
 				kind: "frontier",
-				origin: target.origin,
-				type: programOf(target),
+				origin: targetUrl.origin,
+				type: programOf(targetUrl),
 				color: nodeColor("frontier", config),
 			});
 		}
 
-		graph.mergeDirectedEdge(source, target.href, {
+		graph.mergeDirectedEdge(source, target, {
 			type: edge.type,
-			color: edgeColor(graph, source, target.href, config),
+			color: edgeColor(graph, source, target, config),
 			size: config.edgeSize,
 		});
 	}
+}
+
+/** Keys a page without a non-root path's trailing slash, as the protocol reads `/about/` as `/about`. */
+function pageKey(url: URL): string {
+	if (url.pathname === "/" || !url.pathname.endsWith("/")) return url.href;
+	const key = new URL(url);
+	key.pathname = url.pathname.slice(0, -1);
+	return key.href;
 }
 
 /** Drops the site's name from a page title, then cuts it at a word near `SHORT_LABEL_LENGTH`. */
@@ -577,12 +592,12 @@ function typesetDestination(text: string, settings: LabelSettings): Typeset {
 }
 
 function hoverLines(
-	key: string,
 	node: Record<string, unknown>,
 	settings: LabelSettings,
 	localOrigin: string | undefined,
 ): Typeset[] {
-	const destination = typesetDestination(destinationOf(key, localOrigin), settings);
+	const url = typeof node.url === "string" ? node.url : "";
+	const destination = typesetDestination(destinationOf(url, localOrigin), settings);
 	const title = typeof node.title === "string" ? node.title : "";
 	return title ? [typesetLabel(title, node.tier, settings), destination] : [destination];
 }
@@ -679,7 +694,7 @@ function mapHoverDrawer(
 		context.restore();
 
 		let top = labelTop(data);
-		for (const [i, line] of hoverLines(data.key, data, settings, localOrigin).entries()) {
+		for (const [i, line] of hoverLines(data, settings, localOrigin).entries()) {
 			const ink = settings.labelColor.color ?? "#000";
 			drawHaloText(context, line, data.x, top, halo, ink, i === 0 ? 1 : MUTED_LABEL_ALPHA);
 			top += lineHeight(settings);
@@ -875,7 +890,8 @@ export class GraphGarden extends HTMLElement {
 			this.renderer.refresh({ partialGraph: { nodes: [] }, skipIndexation: true });
 
 			this.renderer.on("clickNode", ({ node }) => {
-				if (parseHttpUrl(node)) window.location.href = node;
+				const url: unknown = graph.getNodeAttribute(node, "url");
+				if (typeof url === "string" && parseHttpUrl(url)) window.location.href = url;
 			});
 
 			// A finger has no hover, and Sigma emits no leaveNode when it lifts
@@ -955,12 +971,7 @@ export class GraphGarden extends HTMLElement {
 		const data = renderer.getNodeDisplayData(hovered.node);
 		if (data === undefined) return placeApart(neighbours, []);
 		const { x, y } = renderer.framedGraphToViewport(data);
-		const lines = hoverLines(
-			hovered.node,
-			graph.getNodeAttributes(hovered.node),
-			settings,
-			localOriginOf(graph),
-		);
+		const lines = hoverLines(graph.getNodeAttributes(hovered.node), settings, localOriginOf(graph));
 		const top = labelTop({ y, size: renderer.scaleSize(data.size) });
 		const hoverWidth = Math.max(...lines.map((line) => textWidth(context, line)));
 		return placeApart(neighbours, [labelBox(hoverWidth, lines.length, x, top, settings)]);

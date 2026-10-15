@@ -38,7 +38,7 @@ Served at `BASE_URL/.well-known/graphgarden.json`, where `BASE_URL` is the site 
 ```
 
 - **`base_url`** — site origin with a trailing slash and no path, such as `https://alice.dev/`. A page under `https://x.dev/garden/` belongs to the `https://x.dev/` graph, since this file lives under `/.well-known/`.
-- **`nodes[].url`** — relative path on the same site.
+- **`nodes[].url`** — relative path on the same site. Consumers **MUST** read a path with or without its trailing slash as the same page, so a link to `/about` lands on the node `/about/`.
 - **`edges[].source`** — relative path (must match a node).
 - **`edges[].target`** — relative path for `internal`, absolute URL for `friend`. Internal targets **SHOULD** match a node. Generators drop links to excluded, missing or non-HTML pages.
 - **`edges[].type`** — `"internal"` (same site) or `"friend"` (site declared in config). Other external links are ignored when the file is generated.

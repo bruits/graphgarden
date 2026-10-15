@@ -69,13 +69,8 @@ describe("Alice, built by the CLI", () => {
 			"/species/european-rabbit/ -> https://bob.test/regions/yorkshire/ (friend)",
 			"/species/mountain-hare/ -> / (internal)",
 			"/species/mountain-hare/ -> /species/european-rabbit/ (internal)",
+			"/species/mountain-hare/ -> https://bob.test/regions/cotswolds (friend)",
 		]);
-	});
-
-	test("links to pages of Bob's graph, and Bob links back to hers", () => {
-		expect(friendTargetsOf(alice)).not.toHaveLength(0);
-		expect(pagesOf(bob)).toEqual(expect.arrayContaining(friendTargetsOf(alice)));
-		expect(pagesOf(alice)).toEqual(expect.arrayContaining(friendTargetsOf(bob)));
 	});
 
 	test("bundles the graph-garden element into her pages", () => {
@@ -125,9 +120,9 @@ describe("Bob, served over HTTP", () => {
 
 		await fetchFriendGraphs(graph, DEFAULT_CONFIG, local.friends);
 
+		const titles = Object.fromEntries(graph.mapNodes((_node, { url, title }) => [url, title]));
 		for (const node of bob.nodes) {
-			const url = new URL(node.url, bob.base_url).href;
-			expect(graph.getNodeAttribute(url, "title")).toBe(node.title);
+			expect(titles[new URL(node.url, bob.base_url).href]).toBe(node.title);
 		}
 	});
 });
@@ -139,7 +134,7 @@ describe("<graph-garden> on Alice's site", () => {
 		vi.restoreAllMocks();
 	});
 
-	test("renders her pages with Bob's merged in", async () => {
+	test("renders her pages with Bob's merged in, their links to each other landing on them", async () => {
 		vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
 			const url = String(input);
 			const body = url.includes("bob.test") ? BOB_JSON : aliceJson;
@@ -152,9 +147,14 @@ describe("<graph-garden> on Alice's site", () => {
 		await element.ready;
 
 		const graph = element.graph!;
-		for (const url of [...pagesOf(alice), ...pagesOf(bob)]) {
-			expect(graph.hasNode(url)).toBe(true);
-		}
+		expect(graph.mapNodes((_node, { url }) => url)).toEqual(
+			expect.arrayContaining([...pagesOf(alice), ...pagesOf(bob)]),
+		);
+		const links = graph.filterEdges(
+			(_edge, _attributes, _source, _target, from, to) => from.origin !== to.origin,
+		);
+		expect(links).toHaveLength(friendTargetsOf(alice).length + friendTargetsOf(bob).length);
+		expect(graph.filterNodes((_node, { kind }) => kind === "frontier")).toEqual([]);
 		graph.forEachNode((_node, attributes) => {
 			expect(Number.isFinite(attributes.x)).toBe(true);
 			expect(Number.isFinite(attributes.y)).toBe(true);

@@ -51,8 +51,6 @@ export async function GET() {
 }
 ```
 
-Write each URL the way the site serves it, here with the trailing slash of Astro's default directory format, so links from friends land on the same node.
-
 Friends fetch the file from their own pages, so it needs a CORS header. On Netlify or Cloudflare Pages, a `public/_headers` file sets it along with a moderate cache:
 
 ```
