@@ -25,10 +25,13 @@
     --ink: #1f2937;
     --muted: #6b7280;
     --rim: #e7e5e4;
+    --key-paper: #ffffff;
+    --key-rim: #d6d3d1;
     --link: #1d8a50;
     /* Link text on the paper and the tint, as --link is under 4.5:1 there */
     --link-ink: #177543;
-    --link-tint: rgb(29 138 80 / 0.12);
+    /* Opaque, so the legend's pill hides the map */
+    --link-tint: #e0ede3;
     --sheet-shadow: 0 1px 3px rgb(28 25 23 / 0.06), 0 10px 24px -6px rgb(28 25 23 / 0.16);
     /* Maudit inlines base16-eighties.dark with no background, so the code panel keeps these in
        both modes */
@@ -43,9 +46,11 @@
         --ink: #e7e5e4;
         --muted: #a8a29e;
         --rim: #3a3532;
+        --key-paper: #292524;
+        --key-rim: #57534e;
         --link: #2fb970;
         --link-ink: #2fb970;
-        --link-tint: rgb(47 185 112 / 0.16);
+        --link-tint: #1f3325;
         --sheet-shadow: 0 1px 3px rgb(0 0 0 / 0.3), 0 10px 24px -6px rgb(0 0 0 / 0.5);
         --gg-local-node-color: #2fb970;
         --gg-friend-node-color: #fbbf24;
@@ -64,9 +69,11 @@
     --ink: #e7e5e4;
     --muted: #a8a29e;
     --rim: #3a3532;
+    --key-paper: #292524;
+    --key-rim: #57534e;
     --link: #2fb970;
     --link-ink: #2fb970;
-    --link-tint: rgb(47 185 112 / 0.16);
+    --link-tint: #1f3325;
     --sheet-shadow: 0 1px 3px rgb(0 0 0 / 0.3), 0 10px 24px -6px rgb(0 0 0 / 0.5);
     --gg-local-node-color: #2fb970;
     --gg-friend-node-color: #fbbf24;
@@ -139,7 +146,8 @@ a {
         text-decoration-thickness 0.15s;
 }
 
-a:focus-visible {
+a:focus-visible,
+summary:focus-visible {
     outline: 2px solid var(--link);
     outline-offset: 3px;
 }
@@ -155,7 +163,9 @@ main a:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    a {
+    a,
+    .legend summary,
+    .legend .dots .dot {
         transition: none;
     }
 }
@@ -220,17 +230,154 @@ graph-garden {
     position: absolute;
     bottom: 2rem;
     left: 2rem;
-    right: 2rem;
-    max-width: 26rem;
-    margin: 0;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--rim);
-    border-radius: 8px;
-    background: var(--paper);
-    color: var(--muted);
     font-size: 0.875rem;
-    font-style: italic;
-    pointer-events: none;
+    line-height: 1.4;
+}
+
+.legend summary {
+    display: flex;
+    align-items: center;
+    gap: 0.55em;
+    padding: 0.3rem 0.85rem 0.3rem 0.65rem;
+    border: 1px solid var(--rim);
+    border-radius: 999px;
+    --pill: var(--paper);
+    background: var(--pill);
+    list-style: none;
+    cursor: pointer;
+    transition:
+        color 0.15s,
+        background-color 0.15s;
+}
+
+.legend summary::-webkit-details-marker {
+    display: none;
+}
+
+.legend[open] summary {
+    --pill: var(--link-tint);
+    color: var(--link-ink);
+}
+
+/* A touch screen keeps :hover after a tap, which would leave a closed pill tinted */
+@media (hover: hover) {
+    .legend summary:hover {
+        --pill: var(--link-tint);
+        color: var(--link-ink);
+    }
+}
+
+.legend .dots {
+    display: flex;
+}
+
+.legend .dots .dot {
+    box-shadow: 0 0 0 1.5px var(--pill);
+    transition: box-shadow 0.15s;
+}
+
+.legend .dots .dot + .dot {
+    margin-left: -0.2em;
+}
+
+.legend-card {
+    position: absolute;
+    bottom: calc(100% + 0.5rem);
+    left: 0;
+    display: grid;
+    gap: 0.6rem;
+    width: max-content;
+    /* 4rem is both 2rem insets, and 6rem the bottom inset, the pill, the gap and some room above */
+    max-width: calc(100vw - 4rem);
+    max-height: calc(100vh - 6rem);
+    max-height: calc(100dvh - 6rem);
+    overflow-y: auto;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--rim);
+    border-radius: 10px;
+    background: var(--paper);
+    box-shadow: var(--sheet-shadow);
+}
+
+.nodes,
+.gestures {
+    display: grid;
+    gap: 0.3rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.nodes li {
+    display: flex;
+    align-items: center;
+    gap: 0.55em;
+}
+
+/* Every key takes the width of the widest */
+.gestures {
+    grid-template-columns: auto 1fr;
+    column-gap: 0.6em;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--rim);
+}
+
+.gestures li {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: center;
+}
+
+.legend kbd {
+    padding: 0.05em 0.5em;
+    border: 1px solid var(--key-rim);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    background: var(--key-paper);
+    font: inherit;
+    font-size: 0.8em;
+    line-height: 1.35;
+    text-align: center;
+    white-space: nowrap;
+}
+
+@media (hover: hover) {
+    .legend .touch {
+        display: none;
+    }
+}
+
+@media (hover: none) {
+    .legend .mouse {
+        display: none;
+    }
+}
+
+.dot {
+    flex: none;
+    width: 0.75em;
+    height: 0.75em;
+    border-radius: 50%;
+}
+
+/* The page sets these colours only in dark mode, so the fallbacks are the component's defaults */
+.dot.local {
+    background: var(--gg-local-node-color, #1d8a50);
+}
+
+.dot.friend {
+    background: var(--gg-friend-node-color, #f59e0b);
+}
+
+.dot.frontier {
+    background: var(--gg-frontier-node-color, #9ca3af);
+}
+
+/* The map's ring keeps a hole of half its radius */
+.dot.home {
+    border: 0.18em solid var(--ink);
+    background: var(--paper);
 }
 
 /* The frame sits on `.sheet`, as a body background would spread to the whole canvas. Its shadow

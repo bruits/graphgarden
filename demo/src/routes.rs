@@ -21,10 +21,29 @@ impl Route for Index {
             "map",
             html! {
                 graph-garden {}
-                p.legend {
-                    "Green nodes are this site's pages, amber ones belong to the sites it gathers, "
-                    "and grey ones are links nobody describes yet. A ring marks each site's home. "
-                    "Click or tap a node to visit it, and hover it to see its neighbours."
+                details.legend {
+                    summary {
+                        span.dots {
+                            span.dot.local {}
+                            span.dot.friend {}
+                            span.dot.frontier {}
+                        }
+                        "Legend"
+                    }
+                    div.legend-card {
+                        ul.nodes {
+                            li { span.dot.local {} "This site's pages" }
+                            li { span.dot.friend {} "Friends' pages" }
+                            li { span.dot.frontier {} "Outside the garden" }
+                            li { span.dot.home {} "A site's home" }
+                        }
+                        ul.gestures {
+                            li { kbd { span.mouse { "Click" } span.touch { "Tap" } } "Visit the page" }
+                            li.mouse { kbd { "Hover" } "Show its neighbours" }
+                            li { kbd { span.mouse { "Scroll" } span.touch { "Pinch" } } "Zoom" }
+                            li { kbd { "Drag" } "Move around" }
+                        }
+                    }
                 }
             },
         ))
