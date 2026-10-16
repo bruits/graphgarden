@@ -1,5 +1,12 @@
 # graphgarden-web
 
+## 0.3.0 — 2026-10-16
+
+### Minor changes
+
+- [4416380](https://github.com/bruits/graphgarden/commit/4416380d84e1e8feea3bcb79d1201a7ed37fd0ed) Changed `<graph-garden>` to draw a map, with local pages in green, a ring on each site's home, one node for a page linked with or without its trailing slash, and a hover that shows a page's full title, where it leads, its neighbours, and, on a friend's page, its whole site in orchid. Added a `ready` promise that resolves once the graph is rendered or loading has given up, made the layout about three times faster on large graphs, and left out a friend that does not answer within 10 seconds, which used to stall the graph. — Thanks @goulvenclech!
+- [4416380](https://github.com/bruits/graphgarden/commit/4416380d84e1e8feea3bcb79d1201a7ed37fd0ed) **⚠️ breaking change:** Added `--gg-label-halo-color`, white by default, which colours label outlines, the hover fade, and the holes of home rings, so a page on another background must set it. Added `--gg-frontier-edge-color`, `--gg-highlight-node-color`, and `--gg-highlight-edge-color`, the last two for a hovered friend's site, all four with a required `GraphGardenConfig` field such as `labelHaloColor`, and made `GraphGardenConfig.iterations` optional, as the count now follows the graph's size. — Thanks @goulvenclech!
+
 ## 0.2.0 — 2026-02-25
 
 ### Minor changes

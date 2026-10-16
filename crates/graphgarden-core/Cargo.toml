@@ -1,6 +1,6 @@
 [package]
 name = "graphgarden-core"
-version = "0.2.0"
+version = "0.3.0"
 description = "Core library implementing the GraphGarden protocol — walk a built site and build its link graph"
 edition.workspace = true
 license.workspace = true
