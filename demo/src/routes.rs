@@ -94,7 +94,7 @@ impl Route for Join {
                 p {
                     "GraphGarden is free software, and its protocol needs no sign-up. Publish your site's "
                     "file, list your friends, and show the graph with " code { "<graph-garden>" }
-                    ", all on your own site. The " a href="/tutorial/" { "tutorial" } " walks through each step."
+                    ". The " a href="/tutorial/" { "tutorial" } " walks through each step."
                 }
 
                 h2 { "Join the shared garden" }

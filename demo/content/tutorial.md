@@ -1,12 +1,16 @@
 # Tutorial
 
+How to plant a garden of your own.
+
 ## How it works
 
-Each site in a garden publishes one JSON file at `/.well-known/graphgarden.json`. It lists the site's pages as nodes, the links between them and to friend sites as edges, and the friends the site declares. The `<graph-garden>` element fetches the file of the site it sits on and the files of its friends, then draws them as one graph. The [specification](https://github.com/bruits/graphgarden/blob/main/crates/graphgarden-protocol/README.md) has the full format.
+Each site serves one JSON file at `/.well-known/graphgarden.json`, which lists its pages, the links between them, and its friends, with the links from its pages to theirs. The `<graph-garden>` element on your page fetches your file and your friends' files, and draws all of them as one map. The [specification](https://github.com/bruits/graphgarden/blob/main/crates/graphgarden-protocol/README.md) defines the full format.
 
 Friendship goes one way. Adding Bob shows his graph on your site, and Bob shows yours once he adds you back.
 
 ## Publish your graph
+
+The file comes either from your site's own build or from the `graphgarden` CLI, which reads the built HTML.
 
 ### From your own build
 
@@ -67,7 +71,7 @@ The `graphgarden` CLI writes the file from any static site's built HTML. Install
 cargo install graphgarden
 ```
 
-Describe the site in a `graphgarden.toml` at the project root, adding an `[output]` table with `dir` when the build does not land in `./dist`:
+Describe the site in a `graphgarden.toml` at the project root:
 
 ```toml
 friends = ["https://bob.dev/"]
@@ -77,7 +81,7 @@ base_url = "https://alice.dev/"
 title = "Alice's Garden"
 ```
 
-Then chain it to the build, for example in `package.json` with `"build": "astro build && graphgarden build"`. It writes `dist/.well-known/graphgarden.json`, so a dev server that skips the build has no graph to show. The [CLI README](https://github.com/bruits/graphgarden/blob/main/crates/graphgarden/README.md) covers the other options, such as leaving out pages or the links of a site's navigation. The CORS header above applies here too.
+Then chain the CLI to the build, for example in `package.json` with `"build": "astro build && graphgarden build"`. It writes `dist/.well-known/graphgarden.json`, so a dev server that skips the build has no graph to show. When the build does not land in `./dist`, add an `[output]` table with `dir`. The [CLI README](https://github.com/bruits/graphgarden/blob/main/crates/graphgarden/README.md) covers the other options, such as leaving out pages or the links of a site's navigation. The CORS header above applies here too.
 
 ## Show the graph
 
