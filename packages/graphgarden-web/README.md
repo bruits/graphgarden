@@ -84,6 +84,12 @@ graph-garden {
 }
 ```
 
+The element reads these properties while loading its graph, and again when the color scheme preference changes. A page that switches themes another way, such as with a class, calls `restyle()` once switched, which repaints the graph without reloading or moving it:
+
+```js
+document.querySelector("graph-garden").restyle();
+```
+
 #### Layout and sizing (HTML attributes)
 
 | Attribute    | Default                       | Description                             |

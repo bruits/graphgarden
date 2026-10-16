@@ -47,6 +47,10 @@ const { renderers, FakeSigma } = vi.hoisted(() => {
 			// Sigma renders at once unless asked to schedule
 			if (!schedule) this.render();
 		}
+		setSettings(settings: Partial<Settings>) {
+			Object.assign(this.settings, settings);
+			this.refresh({ schedule: true });
+		}
 		zoom(ratio: number) {
 			this.ratio = ratio;
 			this.render();
@@ -1680,6 +1684,98 @@ describe("<graph-garden> labels and hover", () => {
 			fonts.dispatchEvent(new Event("loadingdone"));
 
 			expect(renderers[1].refreshes).toBe(1);
+		});
+	});
+
+	describe("once restyled", () => {
+		test("recolours its nodes, edges, and labels in place", async () => {
+			const { element, renderer } = await render();
+			const graph = element.graph!;
+			const edge = graph.directedEdge(LOCAL, `${LOCAL}about`)!;
+			element.style.setProperty("--gg-local-node-color", "#ff0000");
+			element.style.setProperty("--gg-local-edge-color", "#0000ff");
+			element.style.setProperty("--gg-label-color", "#00ff00");
+			element.style.setProperty("--gg-label-halo-color", "#101010");
+
+			element.restyle();
+
+			expect(graph.getNodeAttributes(LOCAL)).toMatchObject({ x: 100, y: 100, color: "#ff0000" });
+			expect(graph.getEdgeAttribute(edge, "color")).toBe("#0000ff");
+			expect(renderers).toHaveLength(1);
+			expect(fetch).toHaveBeenCalledTimes(1);
+			const settings = { ...DEFAULT_SETTINGS, ...renderer.settings };
+			const { context, texts, halos } = recordingContext();
+			settings.defaultDrawNodeLabel(
+				context,
+				labelData(`${LOCAL}about`, "About", "medium"),
+				settings,
+			);
+			expect(texts[0].ink).toBe("#00ff00");
+			expect(halos).toEqual([{ text: "About", color: "#101010" }]);
+		});
+
+		test("fills its home rings and fades toward the new halo colour", async () => {
+			const { element, renderer } = await render();
+			const blog = `${LOCAL}blog`;
+			element.style.setProperty("--gg-label-halo-color", "#0f172a");
+
+			element.restyle();
+
+			const { nodeProgramClasses, nodeReducer } = renderer.settings;
+			const ring = Object.create(nodeProgramClasses!.home.prototype) as NodeCircleProgram;
+			expect(ring.getDefinition().FRAGMENT_SHADER_SOURCE).toContain(
+				"vec4(0.0588, 0.0902, 0.1647, 1.0)",
+			);
+			renderer.handlers.get("enterNode")!({ node: LOCAL, event: pointer("mousemove") });
+			expect(nodeReducer!(blog, element.graph!.getNodeAttributes(blog)).color).toBe(
+				"rgb(20,63,55)",
+			);
+		});
+
+		test("keeps a program for every node type", async () => {
+			const { element, renderer } = await render();
+
+			element.restyle();
+
+			const types = new Set(element.graph!.mapNodes((_node, attributes) => attributes.type));
+			for (const type of types) expect(renderer.settings.nodeProgramClasses).toHaveProperty(type);
+		});
+
+		test("follows a change of colour scheme preference", async () => {
+			const scheme = new EventTarget();
+			vi.stubGlobal("matchMedia", () => scheme);
+			const { element } = await render();
+			element.style.setProperty("--gg-local-node-color", "#ff0000");
+
+			scheme.dispatchEvent(new Event("change"));
+
+			expect(element.graph!.getNodeAttribute(LOCAL, "color")).toBe("#ff0000");
+		});
+
+		test("reaches the first render when made while the friends were still loading", async () => {
+			const friend = deferred<Response>();
+			const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) =>
+				String(input).startsWith(FRIEND)
+					? friend.promise
+					: Promise.resolve({
+							ok: true,
+							json: async () => makeFile({ friends: [FRIEND] }),
+						} as Response),
+			);
+			vi.stubGlobal("fetch", fetchMock);
+			const element = mount();
+			await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+			element.style.setProperty("--gg-local-node-color", "#ff0000");
+			element.style.setProperty("--gg-friend-node-color", "#0000ff");
+			element.style.setProperty("--gg-label-color", "#00ff00");
+
+			element.restyle();
+			friend.resolve({ ok: true, json: async () => friendFile() } as Response);
+			await element.ready;
+
+			expect(element.graph!.getNodeAttribute(LOCAL, "color")).toBe("#ff0000");
+			expect(element.graph!.getNodeAttribute(`${FRIEND}blog`, "color")).toBe("#0000ff");
+			expect(renderers[0].settings.labelColor).toEqual({ color: "#00ff00" });
 		});
 	});
 

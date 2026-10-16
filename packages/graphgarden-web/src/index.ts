@@ -7,6 +7,7 @@ import {
 	type NodeHoverDrawingFunction,
 	type NodeLabelDrawingFunction,
 } from "sigma/rendering";
+import type { Settings } from "sigma/settings";
 import { colorToArray } from "sigma/utils";
 
 const WELL_KNOWN_PATH = "/.well-known/graphgarden.json";
@@ -280,6 +281,17 @@ function edgeColor(
 	if (targetKind === "frontier") return config.frontierEdgeColor;
 	const local = targetKind === "local" && graph.getNodeAttribute(source, "kind") === "local";
 	return local ? config.localEdgeColor : config.friendEdgeColor;
+}
+
+function recolor(graph: Graph, config: GraphGardenConfig): void {
+	graph.updateEachNodeAttributes((_node, attributes) => ({
+		...attributes,
+		color: nodeColor(attributes.kind, config),
+	}));
+	graph.updateEachEdgeAttributes((_edge, attributes, source, target) => ({
+		...attributes,
+		color: edgeColor(graph, source, target, config),
+	}));
 }
 
 /**
@@ -766,6 +778,15 @@ export class GraphGarden extends HTMLElement {
 		this.container = null;
 	}
 
+	/** Rereads the colour custom properties and repaints the rendered graph in place. */
+	restyle(): void {
+		const { graph, renderer } = this;
+		if (graph === null || renderer === null) return;
+		const config = this.resolveConfig();
+		recolor(graph, config);
+		renderer.setSettings(this.colorSettings(graph, config));
+	}
+
 	private async load(signal: AbortSignal): Promise<void> {
 		try {
 			const file = await fetchProtocolFile(WELL_KNOWN_PATH, signal);
@@ -775,10 +796,13 @@ export class GraphGarden extends HTMLElement {
 			// fetchFriendGraphs settles normally after an abort
 			if (signal.aborted) return;
 
-			assignNodeSizes(graph, config.nodeSize);
-			assignLayout(graph, config.iterations);
+			// The page may have switched themes while the friends loaded, with no renderer to restyle yet
+			const latest = this.resolveConfig();
+			recolor(graph, latest);
+			assignNodeSizes(graph, latest.nodeSize);
+			assignLayout(graph, latest.iterations);
 			this.graph = graph;
-			this.initRenderer(config, signal);
+			this.initRenderer(latest, signal);
 		} catch (error) {
 			if (!signal.aborted) console.error("<graph-garden> could not load the graph:", error);
 		}
@@ -820,66 +844,17 @@ export class GraphGarden extends HTMLElement {
 		// Sigma throws without WebGL, as in happy-dom
 		try {
 			this.renderer = new Sigma(graph, this.container, {
-				nodeProgramClasses: { home: createRingProgram(config.labelHaloColor) },
+				...this.colorSettings(graph, config),
 				edgeProgramClasses: {
 					internal: EdgeRectangleProgram,
 					friend: EdgeRectangleProgram,
 				},
-				defaultEdgeColor: config.localEdgeColor,
-				labelColor: { color: config.labelColor },
 				labelSize: config.labelSize,
 				labelFont: getComputedStyle(this).fontFamily || "sans-serif",
 				renderEdgeLabels: false,
 				// Zoomed out, nodes shrink with the map, so the smaller ones drop their labels
 				zoomToSizeRatioFunction: (ratio) => (ratio > 1 ? ratio : Math.sqrt(ratio)),
 				maxCameraRatio: MAX_CAMERA_RATIO,
-				defaultDrawNodeLabel: mapLabelDrawer(
-					config.labelHaloColor,
-					(context, settings) => (this.placedLabels ??= this.placeLabels(context, settings)),
-				),
-				defaultDrawNodeHover: mapHoverDrawer(
-					config.labelHaloColor,
-					localOriginOf(graph),
-					() => this.hovered?.node ?? null,
-				),
-				nodeReducer: (node, attributes) => {
-					// Sigma's label grid would hide labels that `placeLabels` keeps, so every label skips it
-					const data = { ...attributes, forceLabel: Boolean(attributes.label) };
-					const hovered = this.hovered;
-					if (hovered === null) return data;
-					const site = inSite(attributes, hovered.site);
-					const color =
-						site && hovered.site?.kind === "friend" ? config.highlightNodeColor : attributes.color;
-					if (node === hovered.node || graph.areNeighbors(node, hovered.node)) {
-						return { ...data, color };
-					}
-					return {
-						...data,
-						color: fade(color, config.labelHaloColor, site ? SITE_FADE_RATIO : FADE_RATIO),
-					};
-				},
-				edgeReducer: (edge, attributes) => {
-					const hovered = this.hovered;
-					if (hovered === null) return attributes;
-					const friend = hovered.site?.kind === "friend";
-					if (graph.hasExtremity(edge, hovered.node)) {
-						if (!friend) return attributes;
-						const other = graph.getNodeAttributes(graph.opposite(hovered.node, edge));
-						if (inSite(other, hovered.site)) {
-							return { ...attributes, color: config.highlightEdgeColor };
-						}
-						if (other.kind === "local") return { ...attributes, color: config.localEdgeColor };
-						return attributes;
-					}
-					const site =
-						inSite(graph.getSourceAttributes(edge), hovered.site) &&
-						inSite(graph.getTargetAttributes(edge), hovered.site);
-					const color = site && friend ? config.highlightEdgeColor : attributes.color;
-					return {
-						...attributes,
-						color: fade(color, config.labelHaloColor, site ? SITE_FADE_RATIO : FADE_RATIO),
-					};
-				},
 			});
 
 			this.renderer.on("beforeRender", () => {
@@ -921,9 +896,73 @@ export class GraphGarden extends HTMLElement {
 				},
 				{ signal },
 			);
+
+			// A page theming the graph by media query changes its custom properties without telling it
+			window
+				.matchMedia("(prefers-color-scheme: dark)")
+				.addEventListener("change", () => this.restyle(), { signal });
 		} catch (error) {
 			console.warn("<graph-garden> could not initialize Sigma renderer:", error);
 		}
+	}
+
+	private colorSettings(graph: Graph, config: GraphGardenConfig): Partial<Settings> {
+		return {
+			// Sigma drops the programs a new map leaves out, its default circle among them
+			nodeProgramClasses: {
+				circle: NodeCircleProgram,
+				home: createRingProgram(config.labelHaloColor),
+			},
+			defaultEdgeColor: config.localEdgeColor,
+			labelColor: { color: config.labelColor },
+			defaultDrawNodeLabel: mapLabelDrawer(
+				config.labelHaloColor,
+				(context, settings) => (this.placedLabels ??= this.placeLabels(context, settings)),
+			),
+			defaultDrawNodeHover: mapHoverDrawer(
+				config.labelHaloColor,
+				localOriginOf(graph),
+				() => this.hovered?.node ?? null,
+			),
+			nodeReducer: (node, attributes) => {
+				// Sigma's label grid would hide labels that `placeLabels` keeps, so every label skips it
+				const data = { ...attributes, forceLabel: Boolean(attributes.label) };
+				const hovered = this.hovered;
+				if (hovered === null) return data;
+				const site = inSite(attributes, hovered.site);
+				const color =
+					site && hovered.site?.kind === "friend" ? config.highlightNodeColor : attributes.color;
+				if (node === hovered.node || graph.areNeighbors(node, hovered.node)) {
+					return { ...data, color };
+				}
+				return {
+					...data,
+					color: fade(color, config.labelHaloColor, site ? SITE_FADE_RATIO : FADE_RATIO),
+				};
+			},
+			edgeReducer: (edge, attributes) => {
+				const hovered = this.hovered;
+				if (hovered === null) return attributes;
+				const friend = hovered.site?.kind === "friend";
+				if (graph.hasExtremity(edge, hovered.node)) {
+					if (!friend) return attributes;
+					const other = graph.getNodeAttributes(graph.opposite(hovered.node, edge));
+					if (inSite(other, hovered.site)) {
+						return { ...attributes, color: config.highlightEdgeColor };
+					}
+					if (other.kind === "local") return { ...attributes, color: config.localEdgeColor };
+					return attributes;
+				}
+				const site =
+					inSite(graph.getSourceAttributes(edge), hovered.site) &&
+					inSite(graph.getTargetAttributes(edge), hovered.site);
+				const color = site && friend ? config.highlightEdgeColor : attributes.color;
+				return {
+					...attributes,
+					color: fade(color, config.labelHaloColor, site ? SITE_FADE_RATIO : FADE_RATIO),
+				};
+			},
+		};
 	}
 
 	/**
