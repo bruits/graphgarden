@@ -1,5 +1,11 @@
 # graphgarden-web
 
+## 0.4.0 — 2026-10-16
+
+### Minor changes
+
+- [63d6cfc](https://github.com/bruits/graphgarden/commit/63d6cfc18913afe0490dc87be7f61d48754e0c0d) Added a `restyle()` method to `<graph-garden>` that rereads its color custom properties and repaints the graph without reloading or moving it. The element also repaints itself when the color scheme preference changes. — Thanks @goulvenclech!
+
 ## 0.3.0 — 2026-10-16
 
 ### Minor changes
