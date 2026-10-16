@@ -105,8 +105,8 @@ impl Route for Join {
                     ". Your site has to"
                 }
                 ul {
-                    li { "be served over HTTPS," }
-                    li { "publish " code { "/.well-known/graphgarden.json" } " with the CORS header from the tutorial," }
+                    li { "be served over " abbr title="Hypertext Transfer Protocol Secure" { "HTTPS" } "," }
+                    li { "publish " code { "/.well-known/graphgarden.json" } " with the " abbr title="Cross-Origin Resource Sharing" { "CORS" } " header from the tutorial," }
                     li { "link to GraphGarden at least once, to this site or to the repository." }
                 }
                 p {

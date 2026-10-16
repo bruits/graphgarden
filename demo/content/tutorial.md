@@ -4,13 +4,13 @@ How to plant a garden of your own.
 
 ## How it works
 
-Each site serves one JSON file at `/.well-known/graphgarden.json`, which lists its pages, the links between them, and its friends, with the links from its pages to theirs. The `<graph-garden>` element on your page fetches your file and your friends' files, and draws all of them as one map. The [specification](https://github.com/bruits/graphgarden/blob/main/crates/graphgarden-protocol/README.md) defines the full format.
+Each site serves one <abbr title="JavaScript Object Notation">JSON</abbr> file at `/.well-known/graphgarden.json`, which lists its pages, the links between them, and its friends, with the links from its pages to theirs. The `<graph-garden>` element on your page fetches your file and your friends' files, and draws all of them as one map. The [specification](https://github.com/bruits/graphgarden/blob/main/crates/graphgarden-protocol/README.md) defines the full format.
 
 Friendship goes one way. Adding Bob shows his graph on your site, and Bob shows yours once he adds you back.
 
 ## Publish your graph
 
-The file comes either from your site's own build or from the `graphgarden` CLI, which reads the built HTML.
+The file comes either from your site's own build or from the `graphgarden` <abbr title="Command-Line Interface">CLI</abbr>, which reads the built <abbr title="Hypertext Markup Language">HTML</abbr>.
 
 ### From your own build
 
@@ -55,7 +55,7 @@ export async function GET() {
 }
 ```
 
-Friends fetch the file from their own pages, so it needs a CORS header. On Netlify or Cloudflare Pages, a `public/_headers` file sets it along with a moderate cache:
+Friends fetch the file from their own pages, so it needs a <abbr title="Cross-Origin Resource Sharing">CORS</abbr> header. On Netlify or Cloudflare Pages, a `public/_headers` file sets it along with a moderate cache:
 
 ```
 /.well-known/graphgarden.json
@@ -63,9 +63,9 @@ Friends fetch the file from their own pages, so it needs a CORS header. On Netli
   Cache-Control: public, max-age=3600
 ```
 
-### With the CLI
+### With the <abbr title="Command-Line Interface">CLI</abbr>
 
-The `graphgarden` CLI writes the file from any static site's built HTML. Install it with a [Rust](https://www.rust-lang.org/) toolchain, on your machine and wherever the site builds, since there is no prebuilt binary:
+The `graphgarden` <abbr title="Command-Line Interface">CLI</abbr> writes the file from any static site's built <abbr title="Hypertext Markup Language">HTML</abbr>. Install it with a [Rust](https://www.rust-lang.org/) toolchain, on your machine and wherever the site builds, since there is no prebuilt binary:
 
 ```sh
 cargo install graphgarden
@@ -81,7 +81,7 @@ base_url = "https://alice.dev/"
 title = "Alice's Garden"
 ```
 
-Then chain the CLI to the build, for example in `package.json` with `"build": "astro build && graphgarden build"`. It writes `dist/.well-known/graphgarden.json`, so a dev server that skips the build has no graph to show. When the build does not land in `./dist`, add an `[output]` table with `dir`. The [CLI README](https://github.com/bruits/graphgarden/blob/main/crates/graphgarden/README.md) covers the other options, such as leaving out pages or the links of a site's navigation. The CORS header above applies here too.
+Then chain the <abbr title="Command-Line Interface">CLI</abbr> to the build, for example in `package.json` with `"build": "astro build && graphgarden build"`. It writes `dist/.well-known/graphgarden.json`, so a dev server that skips the build has no graph to show. When the build does not land in `./dist`, add an `[output]` table with `dir`. The [<abbr title="Command-Line Interface">CLI</abbr> <abbr>README</abbr>](https://github.com/bruits/graphgarden/blob/main/crates/graphgarden/README.md) covers the other options, such as leaving out pages or the links of a site's navigation. The <abbr title="Cross-Origin Resource Sharing">CORS</abbr> header above applies here too.
 
 ## Show the graph
 
@@ -92,7 +92,7 @@ Drop the web component on any page of the site:
 <graph-garden style="width: 100%; height: 600px"></graph-garden>
 ```
 
-It reads the site's file, merges the friends' files, and lays the pages out. Clicking a node opens its page. CSS custom properties match it to the site, as goulven-clech.dev does on its [Friends](https://goulven-clech.dev/friends/) page:
+It reads the site's file, merges the friends' files, and lays the pages out. Clicking a node opens its page. <abbr title="Cascading Style Sheets">CSS</abbr> custom properties match it to the site, as goulven-clech.dev does on its [Friends](https://goulven-clech.dev/friends/) page:
 
 ```css
 graph-garden {
@@ -101,6 +101,6 @@ graph-garden {
 }
 ```
 
-The [web component README](https://github.com/bruits/graphgarden/blob/main/packages/graphgarden-web/README.md) lists every colour and attribute.
+The [web component <abbr>README</abbr>](https://github.com/bruits/graphgarden/blob/main/packages/graphgarden-web/README.md) lists every colour and attribute.
 
 To appear on the shared garden of this site, see [Join](/join/).
