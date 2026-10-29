@@ -47,6 +47,8 @@ export interface GraphGardenConfig {
 	iterations?: number;
 }
 
+// `.github/assets/logo.svg` and `demo/static/logo.svg` share the local, friend, and highlight node
+// colours, picked to stay apart under colour blindness
 export const DEFAULT_CONFIG: GraphGardenConfig = {
 	localNodeColor: "#1d8a50",
 	friendNodeColor: "#f59e0b",

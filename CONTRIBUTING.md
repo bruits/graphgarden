@@ -28,9 +28,13 @@ Issues, PRs, and discussions that break the [code of conduct](./CODE_OF_CONDUCT.
 
 While GraphGarden is 0.x, a feature or a breaking change is a `minor` bump, and a fix a `patch`.
 
-Write one changeset per set of packages and breaking flag, merging related changes, since every listed package's changelog shows the whole text. Internal refactors, tests, and docs need none. The version of `graphgarden-protocol` is the protocol version written into every `graphgarden.json`, so it only moves when the file format does.
+Write one changeset per set of packages and breaking flag, merging related changes, since every listed package's changelog shows the whole text. Internal refactors, tests, docs, and the incidental effects of a dependency update need none. The version of `graphgarden-protocol` is the protocol version written into every `graphgarden.json`, so it only moves when the file format does.
 
 A description starts with `Added`, `Removed`, `Fixed`, `Changed`, `Deprecated`, or `Improved`, and says in one or two sentences what changed for users, without the implementation. A breaking change opens with `**⚠️ breaking change:**`.
+
+## Releasing
+
+On every push to `main`, the [Release workflow](./.github/workflows/release.yml) has Sampo open or refresh a release PR from the pending changesets. Merging it publishes the crates with `CARGO_REGISTRY_TOKEN` and `graphgarden-web` through npm trusted publishing, with no npm token. Sampo skips versions already on a registry, so a failed run can be rerun as is. An OIDC 404 from `pnpm publish` means the trusted publisher on npmjs.com no longer matches the repository or the workflow file name.
 
 ## Getting Started
 
